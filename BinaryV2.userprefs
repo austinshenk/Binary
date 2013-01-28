@@ -1,0 +1,13 @@
+﻿<Properties>
+  <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug" />
+  <MonoDevelop.Ide.Workbench ActiveDocument="Assets\Resources\GameObjects\Scripts\UnitManager.js">
+    <Files>
+      <File FileName="Assets\Resources\GameObjects\Scripts\RTSPlayer.js" Line="420" Column="13" />
+      <File FileName="Assets\Resources\GameObjects\Scripts\UnitManager.js" Line="17" Column="5" />
+    </Files>
+  </MonoDevelop.Ide.Workbench>
+  <MonoDevelop.Ide.DebuggingService.Breakpoints>
+    <BreakpointStore />
+  </MonoDevelop.Ide.DebuggingService.Breakpoints>
+  <MonoDevelop.Ide.DebuggingService.PinnedWatches />
+</Properties>
