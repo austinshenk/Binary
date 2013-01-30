@@ -1,4 +1,5 @@
 #pragma strict
+import System.Collections.Generic;
 
 public class RTSObject extends MonoBehaviour implements Commandable{
 	public var named:String;
@@ -11,8 +12,8 @@ public class RTSObject extends MonoBehaviour implements Commandable{
 	public var hiddenActions:TextAsset[] = new TextAsset[0];
 	public var sightRange:float = 0;
 	public var priority:float = 0;
-	public var waypoints = new Array();
-	public var commands = new Array();
+	public var waypoints:List.<Waypoint> = new List.<Waypoint>();
+	public var commands:List.<Command> = new List.<Command>();
 	private var selectionPlaneRenderer:Renderer;
 	
 	function Start(){ //Execute initital actions like team color and Actions
@@ -34,8 +35,12 @@ public class RTSObject extends MonoBehaviour implements Commandable{
 		hiddenActions = null; //Clear the memory allocation
 	}
 	
-	function Selected(select:boolean){ //Set Object's selection plane to new select state
+	function peekSelected(select:boolean){ //Set Object's selection plane to new select state
 		selectionPlaneRenderer.enabled = select;
+	}
+	
+	function Selected(select:boolean){
+		peekSelected(select);
 	}
 	
 	function isSelected():boolean{ //Return state of renderer for selection plane
@@ -48,5 +53,14 @@ public class RTSObject extends MonoBehaviour implements Commandable{
 	
 	function Kill(){ //Destroy this
 		Destroy(this.gameObject);
+	}
+}
+public class Command extends System.ValueType{
+	var hit:RaycastHit;
+	var type:String;
+	
+	public function Command(hit:RaycastHit, type:String){
+		this.hit = hit;
+		this.type = type;
 	}
 }
