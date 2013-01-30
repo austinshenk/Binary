@@ -1,4 +1,5 @@
 #pragma strict
+import System.Collections.Generic;
 
 public class RTSPlayer extends MonoBehaviour{
 
@@ -16,7 +17,7 @@ public class RTSPlayer extends MonoBehaviour{
 	private var selectionBox:Transform;
 	public var team:int = 0;
 	public var alliance:int = 0;
-	private var units:Array = new Array();
+	private var units:List.<RTSObject> = new List.<RTSObject>();
 	private var multiSelection:boolean = false;
 	private var selectedUnits2Save:RaycastHit[];
 	private var tempUnitSelected:RTSObject;
@@ -59,7 +60,7 @@ public class RTSPlayer extends MonoBehaviour{
 	}
 	
 	function updateUnitsSelected(){
-		for(var i:int=0;i<units.length;i++){
+		for(var i:int=0;i<units.Count;i++){
 			if(units[i] == null){
 				units.RemoveAt(i);
 			}
@@ -67,11 +68,17 @@ public class RTSPlayer extends MonoBehaviour{
 	}
 	
 	function clearUnitsSelected(){
-		for(var i:int=0;i<units.length;i++){
-			var unit:RTSObject = units[i] as RTSObject;
-			unit.Selected(false);
+		for(var i:int=0;i<units.Count;i++){
+			units[i].Selected(false);
 		}
 		units.Clear();
+	}
+	function clearUnitsSelected(index:int){
+		for(var i:int=0;i<units.Count;i++){
+			if(i==index) continue;
+			units[i].Selected(false);
+			units.RemoveAt(i);
+		}
 	}
 	
 	function mouseOverGUI():boolean{
@@ -99,7 +106,7 @@ public class RTSPlayer extends MonoBehaviour{
 					//Test if every collider is a Unit and on the same Team
 					if(selectedUnits2Save[i].collider.GetComponent(Unit) == null){return;}
 					if(selectedUnits2Save[i].collider.GetComponent(RTSObject).team == team){
-						selectedUnits2Save[i].transform.GetComponent(RTSObject).Selected(true);
+						selectedUnits2Save[i].transform.GetComponent(RTSObject).peekSelected(true);
 					}
 				}
 			}
@@ -111,7 +118,7 @@ public class RTSPlayer extends MonoBehaviour{
 		selectionEnded = true;
 		for(var i=0;i<selectedUnits2Save.length;i++){
 			if(selectedUnits2Save[i].collider.GetComponent(Unit) == null){continue;}
-			units.Add(selectedUnits2Save[i].collider.GetComponent(RTSObject));
+			units.Add(selectedUnits2Save[i].transform.GetComponent(RTSObject));
 			selectedUnits2Save[i].transform.GetComponent(RTSObject).Selected(true);
 		}
 	}
@@ -251,8 +258,8 @@ public class RTSPlayer extends MonoBehaviour{
 		//Command Selected Units
 		if(Input.GetButtonDown("Command") && !mouseOverGUI()){
 			//If Units to Command and atleast the first one is on player's Team
-			tempUnitSelected = units[0] as RTSObject;
-			if(units.length != 0 && tempUnitSelected.team == team){
+			tempUnitSelected = units[0];
+			if(units.Count != 0 && tempUnitSelected.team == team){
 				//Cast Ray on every object in scene
 				ray = camera.ScreenPointToRay(Input.mousePosition);
 				if(Physics.Raycast(ray, hit, Mathf.Infinity, 1<<LayerConstants.OBJECTS) || Physics.Raycast(ray, hit, Mathf.Infinity, 1<<LayerConstants.GROUND)){
@@ -299,16 +306,16 @@ public class RTSPlayer extends MonoBehaviour{
 			var guiSelectWidth:int = Screen.width-(2*mainGUIHeight);
 			GUILayout.BeginArea(new Rect(mainGUIHeight,0,guiSelectWidth,mainGUIHeight));
 			GUILayout.Box("", GUILayout.Width(Screen.width-(2*mainGUIHeight)), GUILayout.Height(mainGUIHeight));
-				if(units.length > 0 && selectionEnded){
+				if(units.Count > 0 && selectionEnded){
 					var xoffset:int = 0;
 					var yoffset:int = 0;
 					var selectedHeight:int = 40;
 					var selectedWidth:int = 40;
-					var tempUnit:RTSObject[] = new RTSObject[0];
+					var tempUnit:RTSObject[] = new RTSObject[1];
 					var unitSelectWidth:int = 480;
 					GUILayout.BeginArea(new Rect((guiSelectWidth-unitSelectWidth)/2,0,unitSelectWidth,mainGUIHeight));
-					if(units.length == 1){
-						tempUnitSelected = units[0] as RTSObject;
+					if(units.Count == 1){
+						tempUnitSelected = units[0];
 						GUILayout.BeginArea(new Rect(0,0,unitSelectWidth/2, mainGUIHeight));
 						GUILayout.BeginVertical();
 							if(tempUnitSelected.transform.GetComponent(Unit) != null){
@@ -331,19 +338,15 @@ public class RTSPlayer extends MonoBehaviour{
 						GUILayout.EndArea();
 					}
 					else{
-						for(var a:int=0;a<units.length;a++){
-							tempUnitSelected = units[a] as RTSObject;
+						for(var a:int=0;a<units.Count;a++){
+							tempUnitSelected = units[a];
 							if(tempUnitSelected != null){
 								if(GUI.Button(new Rect(xoffset,yoffset,selectedWidth,selectedHeight), tempUnitSelected.icon)){
 									if(Event.current.button == 0){
-										tempUnit[0] = units[a] as RTSObject;
-										clearUnitsSelected();
-										units = tempUnit;
-										tempUnitSelected = units[0] as RTSObject;
+										clearUnitsSelected(a);
 										tempUnitSelected.Selected(true);
 									}
-									if(Event.current.button == 1){
-										tempUnitSelected = units[a] as RTSObject;
+									else if(Event.current.button == 1){
 										tempUnitSelected.Selected(false);
 										units.RemoveAt(a);
 									}
@@ -364,12 +367,12 @@ public class RTSPlayer extends MonoBehaviour{
 			//Actions
 			GUILayout.BeginArea(new Rect(Screen.width-mainGUIHeight,0,mainGUIHeight,mainGUIHeight));
 			GUILayout.Box("", GUILayout.MinWidth(mainGUIHeight), GUILayout.Height(mainGUIHeight));
-				if(units.length != 0 && selectionEnded){
+				if(units.Count != 0 && selectionEnded){
 					xoffset = 0;
 					yoffset = 0;
 					var actionHeight:int = 50;
 					var actionWidth:int = 50;
-					tempUnitSelected = units[0] as RTSObject;
+					tempUnitSelected = units[0];
 					if(tempUnitSelected.team == team){
 						for(a=0;a<tempUnitSelected.actions.length;a++){
 							if(tempUnitSelected.actions[a] != null){
