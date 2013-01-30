@@ -1,26 +1,27 @@
 #pragma strict
+import System.Collections.Generic;
 
 public static class ArrayHelper{
-	function Pop(list:Object[]){
-		subList(list, 0, list.Length-2);
+	function Pop(list:Object[], t:System.Type){
+		subList(list, 0, list.Length-1);
 	}
-	function Push(list:Object[], obj:Object){
+	function Push(list:Object[], obj:Object, t:System.Type){
 		subList(list, 0, list.length+1);
 		list[list.length-1] = obj;
 	}
 	function subList(list:Object[], start:int, length:int){
 		var temp:Object[] = new Object[length];
-		for(var i:int=start;i<length-1;i++){
+		for(var i:int=start;i<length;i++){
 			temp[i] = list[i];
 		}
-		setEqual(list, temp);
+		list = temp;
 	}
-	function removeAt(list:Object[], index:int){
+	function removeAt(list:Object[], index:int, t:System.Type){
 		var temp:Object[] = new Object[list.length-1];
 		for(var i:int=0;i<temp.length;i++){
 			if(i != index) temp[i] = list[i];
 		}
-		setEqual(list, temp);
+		list = temp;
 	}
 	function contains(list:Object[], obj:Object):int{
 		for(var i:int=0;i<list.length;i++){
@@ -47,12 +48,6 @@ public static class ArrayHelper{
 			}
 		}
 		Debug.Log(temp.length);
-		setEqual(list, temp);
-	}
-	function setEqual(list:Object[], temp:Object[]){
-		list = new Object[temp.length];
-		for(var i:int=0;i<temp.length;i++){
-			list[i] = temp[i];
-		}
+		list = temp;
 	}
 }
