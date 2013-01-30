@@ -111,6 +111,9 @@ public class MovableNeutral extends RTSObject implements Movable{
 	function Wait(){
 		speedLinear = waitingSpeedLinear;
 	}
+	function Ended():boolean{
+		return reachedDestination;
+	}
 
 	function Move(point:Vector3, interruptable:boolean){
 		commandPoint = point;
