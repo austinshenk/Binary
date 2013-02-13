@@ -66,9 +66,6 @@
      <None Include="Assets\AstarPathfindingEditor\Editor\EditorAssets\Materials\Navmesh2.shader" />
      <None Include="Assets\Plugins\AstarPathfindingProject\readme.txt" />
      <None Include="Assets\Plugins\AstarPathfindingProject\ExampleScenes\Materials\DiffuseAlwaysVisible.shader" />
- <Reference Include="Hyperview">
- <HintPath>Assets\Editor\Hyperview.dll</HintPath>
- </Reference>
  <Reference Include="UnityEditor.Graphs">
  <HintPath>C:\Program Files\Unity\Editor\Data\Managed\UnityEditor.Graphs.dll</HintPath>
  </Reference>

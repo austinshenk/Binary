@@ -69,9 +69,6 @@
  <Reference Include="Assembly-UnityScript">
  <HintPath>Library\ScriptAssemblies\Assembly-UnityScript.dll</HintPath>
  </Reference>
- <Reference Include="Hyperview">
- <HintPath>Assets\Editor\Hyperview.dll</HintPath>
- </Reference>
  <Reference Include="UnityEditor.Graphs">
  <HintPath>C:\Program Files\Unity\Editor\Data\Managed\UnityEditor.Graphs.dll</HintPath>
  </Reference>

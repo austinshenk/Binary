@@ -44,10 +44,14 @@
 	</Reference>
   </ItemGroup>
   <ItemGroup>
+     <Compile Include="Assets\Resources\GameObjects\Scripts\Actions\Action.js" />
+     <Compile Include="Assets\Resources\GameObjects\Scripts\Actions\Attack.js" />
+     <Compile Include="Assets\Resources\GameObjects\Scripts\Actions\Move.js" />
      <Compile Include="Assets\Resources\GameObjects\Scripts\ArrayHelper.js" />
      <Compile Include="Assets\Resources\GameObjects\Scripts\AttackableInterface.js" />
      <Compile Include="Assets\Resources\GameObjects\Scripts\BuildableInterface.js" />
      <Compile Include="Assets\Resources\GameObjects\Scripts\Building.js" />
+     <Compile Include="Assets\Resources\GameObjects\Scripts\Command.js" />
      <Compile Include="Assets\Resources\GameObjects\Scripts\CommandableInterface.js" />
      <Compile Include="Assets\Resources\GameObjects\Scripts\DamagableInterface.js" />
      <Compile Include="Assets\Resources\GameObjects\Scripts\GameManager.js" />
