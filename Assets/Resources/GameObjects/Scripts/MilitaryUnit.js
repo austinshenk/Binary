@@ -2,24 +2,33 @@
 
 public class MilitaryUnit extends MovableAttackableDamagable implements Unit{
 
-	function clearWaypoints(){ //Clear Commands and Waypoints along with Waypoint objects
-		for(var i=0;i<waypoints.Count;i++){ //Destroy all waypoint objects
-			Destroy(waypoints[i]);
+	function clearCommands(){ //Clear Commands and Waypoints along with Waypoint objects
+		for(var i:int=0;i<waypoints.Count;i++){ //Destroy all waypoint objects
+			Destroy(waypoints[i].line.gameObject);
 		}
 		commands.Clear();
 		waypoints.Clear();
 	}
 
 	function addCommand(hit:RaycastHit){ //Add Command and create new Waypoint
-		commands.Add(new Command(hit, Decide(hit)));
+		var c:Command = ScriptableObject.CreateInstance.<Command>();
+		c.hit = hit;
+		if(commands.Count == 0)
+			c.type = DecideandAct(hit);
+		else
+			c.type = Decide(hit);
+		commands.Add(c);
 		addWaypoint(hit);
 	}
 	
 	function setCommand(hit:RaycastHit){ //Set first Command to new hit
 		if(commands.Count > 0){ //Clear Commands
-			clearWaypoints();
+			clearCommands();
 		}
-		commands.Add(new Command(hit, DecideandAct(hit)));
+		var c:Command = ScriptableObject.CreateInstance.<Command>();
+		c.hit = hit;
+		c.type = DecideandAct(hit);
+		commands.Add(c);
 	}
 	
 	function addWaypoint(hit:RaycastHit){
@@ -32,7 +41,7 @@ public class MilitaryUnit extends MovableAttackableDamagable implements Unit{
 			newWaypoint = ScriptableObject.CreateInstance.<Waypoint>();
 		}
 		else{
-			Waypoint.prev = commands[commands.Count-1].hit.point;
+			Waypoint.prev = commands[commands.Count-2].hit.point;
 			Waypoint.pos = pos;
 			newWaypoint = ScriptableObject.CreateInstance.<Waypoint>();
 		}
@@ -44,43 +53,70 @@ public class MilitaryUnit extends MovableAttackableDamagable implements Unit{
 		//Some type of Unit or Building
 		if(target.GetComponent(RTSObject) != null){
 			if(target.GetComponent(RTSObject).alliance != 0 && target.GetComponent(RTSObject).alliance != alliance){
-				return "Attackable";
+				return "Attack";
 			}
 			else{
-				return "Follow";
+				//Follow;
 			}
 		}
 		//Ground
 		else{
-			return "Movable";
+			return "Move";
 		}
+		return "";
+	}
+	
+	function getParams(action:String, hit:RaycastHit):Object[]{
+		var params:Object[];
+		switch(action){
+			case "Move":
+			params = [hit, true];
+			break;
+			
+			case "Attack":
+			break;
+		}
+		return params;
 	}
 	
 	function DecideandAct(hit:RaycastHit):String{
 		var decision:String = Decide(hit);
-		switch(decision){
-			case "Movable":
-			Move(hit.point, true);
-			break;
-			
-			case "Attackable":
-			break;
+		var action:Action = GetComponent(decision) as Action;
+		if(action != null){
+			var params:Object[] = getParams(decision, hit);
+			action.Begin(params);
 		}
 		return decision;
+	}
+	
+	function Act(){
+		var params:Object[] = getParams(commands[0].type, commands[0].hit);
+		var action:Action = GetComponent(commands[0].type) as Action;
+		action.Begin(params);
 	}
 	
 	function Selected(select:boolean){
 		super.Selected(select);
 		for(var i:int=0;i<waypoints.Count;i++){
-			waypoints[i].renderer.enabled = select;
+			waypoints[i].line.enabled = select;
 		}
 	}
 	
 	function Update(){
-		if(waypoints.Count == 0) return;
-		if(GetComponent(commands[0].type).Ended()){
-			Debug.Log("Ended");
+		super.Update();
+		if(commands.Count == 0) return;
+		var a:Action = GetComponent(commands[0].type) as Action;
+		if(a.Ended()){
+			if(waypoints.Count == commands.Count){
+				Destroy(waypoints[0].line.gameObject);
+				waypoints.RemoveAt(0);
+			}
+			commands.RemoveAt(0);
+			if(commands.Count != 0)
+				Act();
+			return;
 		}
-		waypoints[0].line.SetPosition(0, transform.position);
+		if(waypoints.Count != 0)
+			waypoints[0].line.SetPosition(0, transform.position);
 	}
 }
