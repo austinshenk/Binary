@@ -55,12 +55,3 @@ public class RTSObject extends MonoBehaviour implements Commandable{
 		Destroy(this.gameObject);
 	}
 }
-public class Command extends System.ValueType{
-	var hit:RaycastHit;
-	var type:String;
-	
-	public function Command(hit:RaycastHit, type:String){
-		this.hit = hit;
-		this.type = type;
-	}
-}
