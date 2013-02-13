@@ -1,5 +1,6 @@
 #pragma strict
 
 public interface Commandable{
-	function Command(hit:RaycastHit);
+	function addCommand(hit:RaycastHit);
+	function setCommand(hit:RaycastHit);
 }
