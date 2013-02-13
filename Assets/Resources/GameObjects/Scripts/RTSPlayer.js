@@ -325,7 +325,7 @@ public class RTSPlayer extends MonoBehaviour{
 							else if(tempUnitSelected.transform.GetComponent(Resource) != null){
 								GUILayout.Label(tempUnitSelected.icon, GUILayout.Height(mainGUIHeight-50));
 								var r:Resource = tempUnitSelected.transform.GetComponent(Resource);
-								for(i=0;i<r.resourcesAllowed.length;i++){
+								for(i=0;i<r.resourcesAllowed.Count;i++){
 									GUILayout.Label(r.resourcesAllowed[i] +" "+ r.currentResources[i], "unitHealthNumber");
 								}
 							}
