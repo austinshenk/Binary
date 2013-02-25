@@ -1,7 +1,7 @@
 #pragma strict
 
-public class UnitManager{
-	static function sendUnitInfo(units:List.<RTSObject>, hit:RaycastHit, multiCommand:boolean){
+public static class UnitManager{
+	function sendUnitInfo(units:List.<RTSObject>, hit:RaycastHit, multiCommand:boolean){
 		var center:Vector3;
 		for(var i:int=0;i<units.Count;i++){
 			var temp:RTSObject = units[i];
@@ -15,12 +15,7 @@ public class UnitManager{
 				var flock:boolean = (Vector3.Distance(center, hit.point) < Vector3.Distance(temp.transform.position, center));
 				temp.GetComponent(Movable).setFlocking(flock);
 			}
-			if(multiCommand){
-				temp.addCommand(hit);
-			}
-			else{
-				temp.setCommand(hit);
-			}
+			temp.addCommand(hit, multiCommand);
 		}
 	}
 }
