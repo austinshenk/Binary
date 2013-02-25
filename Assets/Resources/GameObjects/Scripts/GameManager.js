@@ -1,14 +1,14 @@
 #pragma strict
-
-public static var players = new Array();
-public var resourceStockpiles = new Array();
-public var resourceBuildings = new Array();
+import System.Collections.Generic;
 
 public class GameManager extends MonoBehaviour{
-	function addResourceStockpile(obj:Resource){
+	public static var players:List.<RTSPlayer> = new List.<RTSPlayer>();
+	public static var resourceStockpiles:List.<Resource> = new List.<Resource>();
+	public static var resourceBuildings:List.<Building> = new List.<Building>();
+	static function addResourceStockpile(obj:Resource){
 		resourceStockpiles.Add(obj);
 	}
-	function addResourceBuilding(obj:Building){
+	static function addResourceBuilding(obj:Building){
 		resourceBuildings.Add(obj);
 	}
 	static function addPlayer(obj:RTSPlayer){
