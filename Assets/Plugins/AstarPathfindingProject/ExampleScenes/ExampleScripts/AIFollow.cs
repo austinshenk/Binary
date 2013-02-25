@@ -2,7 +2,8 @@ using UnityEngine;
 using System.Collections;
 using Pathfinding;
 
-/** Example AI */
+/** Example AI.
+ * \deprecated This script has been deprecated, use AIPath or MineBotAI instead */
 [RequireComponent (typeof(Seeker))]
 [RequireComponent (typeof(CharacterController))]
 public class AIFollow : MonoBehaviour {
@@ -67,6 +68,11 @@ public class AIFollow : MonoBehaviour {
 		Repath ();
 	}
 	
+	/** Will make the AI give up it's current path and stop completely. */
+	public void Reset () {
+		path = null;
+	}
+	
 	/** Called when a path has completed it's calculation */
 	public void OnPathComplete (Path p) {
 		
@@ -82,7 +88,7 @@ public class AIFollow : MonoBehaviour {
 		}
 		
 		//Get the calculated path as a Vector3 array
-		path = p.vectorPath;
+		path = p.vectorPath.ToArray();
 		
 		//Find the segment in the path which is closest to the AI
 		//If a closer segment hasn't been found in '6' iterations, break because it is unlikely to find any closer ones then
@@ -112,7 +118,7 @@ public class AIFollow : MonoBehaviour {
 	
 	/** Stops the AI.
 	 * Also stops new search queries from being made
-	 * \version Before 3.0.8 This does not prevent new path calls from making the AI move again
+	 * \since Before 3.0.8 This does not prevent new path calls from making the AI move again
 	 * \see #Resume
 	 * \see #canMove
 	 * \see #canSearch */
@@ -122,7 +128,7 @@ public class AIFollow : MonoBehaviour {
 	}
 	
 	/** Resumes walking and path searching the AI.
-	 * \version Added in 3.0.8
+	 * \since Added in 3.0.8
 	 * \see #Stop
 	 * \see #canMove
 	 * \see #canSearch */
@@ -134,7 +140,7 @@ public class AIFollow : MonoBehaviour {
 	/** Recalculates the path to #target.
 	  * Queries a path request to the Seeker, the path will not be calculated instantly, but will be put on a queue and calculated as fast as possible.
 	  * It will wait if the current path request by this seeker has not been completed yet.
-	  * \see Seeker::IsDone */
+	  * \see Seeker.IsDone */
 	public virtual void Repath () {
 		lastPathSearch = Time.time;
 		
@@ -143,6 +149,14 @@ public class AIFollow : MonoBehaviour {
 			return;
 		}
 		
+		//for (int i=0;i<1000;i++) {
+			//MultithreadPath mp = new MultithreadPath (transform.position,target.position,null);
+			//Path p = new Path (transform.position,target.position,null);
+			//	AstarPath.StartPath (mp);
+		//}
+		//Debug.Log (AstarPath.pathQueue.Count);
+		
+		//StartCoroutine (WaitToRepath ());
 		/*ConstantPath cpath = new ConstantPath(transform.position,null);
 		//Must be set to avoid it from searching towards Vector3.zero
 		cpath.heuristic = Heuristic.None;
@@ -152,8 +166,10 @@ public class AIFollow : MonoBehaviour {
 		//FloodPathTracer fpathTrace = new FloodPathTracer (transform.position,fpath,null);
 		//seeker.StartPath (fpathTrace,OnPathComplete);
 		
+		Path p = ABPath.Construct(transform.position,target.position,null);
+		seeker.StartPath (p,OnPathComplete);
 		//Start a new path from transform.positon to target.position, return the result to the function OnPathComplete
-		seeker.StartPath (transform.position,target.position,OnPathComplete);
+		//seeker.StartPath (transform.position,target.position,OnPathComplete);
 	}
 	
 	/** Start a new path moving to \a targetPoint */
@@ -216,10 +232,11 @@ public class AIFollow : MonoBehaviour {
 		
 		if (navmeshController != null) {
 			navmeshController.SimpleMove (tr.position,forwardDir);
-		} else {
+		} else if (controller != null) {
 			controller.SimpleMove (forwardDir);
+		} else {
+			transform.Translate (forwardDir*Time.deltaTime, Space.World);
 		}
-		
 	}
 	
 	/** Draws helper gizmos.

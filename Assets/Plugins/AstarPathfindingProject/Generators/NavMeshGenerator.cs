@@ -1,8 +1,8 @@
-//#define SafeIntMath  //Deprectated
-//#define DEBUGGING    //Some debugging
+//#define ASTARDEBUG    //Some debugging
 using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
+using Pathfinding.Serialization.JsonFx;
 
 namespace Pathfinding {
 	public interface INavmesh {
@@ -24,9 +24,18 @@ namespace Pathfinding {
 	}
 	
 	[System.Serializable]
+	[JsonOptIn]
 	/** Generates graphs based on navmeshes.
-	 * \ingroup graphs
-	 * Navmeshes are meshes where each polygon define a walkable area.
+\ingroup graphs
+Navmeshes are meshes where each polygon define a walkable area.
+These are great because the AI can get so much more information on how it can walk.
+Polygons instead of points mean that the funnel smoother can produce really nice looking paths and the graphs are also really fast to search
+and have a low memory footprint because of their smaller size to describe the same area (compared to grid graphs).
+\see Pathfinding.RecastGraph
+
+\shadowimage{navmeshgraph_graph.png}
+\shadowimage{navmeshgraph_inspector.png}
+
 	 */
 	public class NavMeshGraph : NavGraph, INavmesh, ISerializableGraph, IUpdatableGraph, IFunnelGraph
 	{
@@ -35,16 +44,30 @@ namespace Pathfinding {
 			MeshNode[] tmp = new MeshNode[number];
 			for (int i=0;i<number;i++) {
 				tmp[i] = new MeshNode ();
+				tmp[i].penalty = initialPenalty;
 			}
 			return tmp as Node[];
 		}
 		
-		
+		[JsonMember]
 		public Mesh sourceMesh; /**< Mesh to construct navmesh from */
 		
+		[JsonMember]
 		public Vector3 offset; /**< Offset in world space */
+		
+		[JsonMember]
 		public Vector3 rotation; /**< Rotation in degrees */
+		
+		[JsonMember]
 		public float scale = 1; /**< Scale of the graph */
+		
+		[JsonMember]
+		/** More accurate nearest node queries.
+		 * When on, looks for the closest point on every triangle instead of if point is inside the node triangle in XZ space.
+		 * This is slower, but a lot better if your mesh contains overlaps (e.g bridges over other areas of the mesh).
+		 * Note that for maximum effect the Full Get Nearest Node Search setting should be toggled in A* Inspector Settings.
+		 */
+		public bool accurateNearestNode = true;
 		
 		//public Node[] graphNodes;
 		
@@ -88,7 +111,8 @@ namespace Pathfinding {
 			
 		}
 		
-		//Relocates the nodes to match the newMatrix, the "oldMatrix" variable can be left out in this function call (only for this graph generator) since it is not used
+		/** Relocates the nodes to match the newMatrix.
+		 * The "oldMatrix" variable can be left out in this function call (only for this graph generator) since it is not used */
 		public override void RelocateNodes (Matrix4x4 oldMatrix, Matrix4x4 newMatrix) {
 			//base.RelocateNodes (oldMatrix,newMatrix);
 			
@@ -99,7 +123,7 @@ namespace Pathfinding {
 			for (int i=0;i<vertices.Length;i++) {
 				//Vector3 tmp = inv.MultiplyPoint3x4 (vertices[i]);
 				//vertices[i] = (Int3)newMatrix.MultiplyPoint3x4 (tmp);
-				vertices[i] = newMatrix.MultiplyPoint3x4 (originalVertices[i]);
+				vertices[i] = (Int3)newMatrix.MultiplyPoint3x4 ((Vector3)originalVertices[i]);
 			}
 			
 			for (int i=0;i<nodes.Length;i++) {
@@ -114,8 +138,7 @@ namespace Pathfinding {
 			}
 		}
 	
-		public static NNInfo GetNearest (INavmesh graph, Node[] nodes, Vector3 position, NNConstraint constraint) {
-				
+		public static NNInfo GetNearest (INavmesh graph, Node[] nodes, Vector3 position, NNConstraint constraint, bool accurateNearestNode) {
 			if (nodes == null || nodes.Length == 0) {
 				Debug.LogError ("NavGraph hasn't been generated yet or does not contain any nodes");
 				return new NNInfo ();
@@ -124,12 +147,11 @@ namespace Pathfinding {
 			if (constraint == null) constraint = NNConstraint.None;
 			
 			
-			return GetNearestForce (nodes,graph.vertices, position, constraint);
-			
+			return GetNearestForceBoth (nodes,graph.vertices, position, NNConstraint.None, accurateNearestNode);
 		}
 		
-		public override NNInfo GetNearest (Vector3 position, NNConstraint constraint, Node hint = null) {
-			return GetNearest (this, nodes,position, constraint);
+		public override NNInfo GetNearest (Vector3 position, NNConstraint constraint, Node hint) {
+			return GetNearest (this, nodes,position, constraint, accurateNearestNode);
 		}
 		
 		/** This performs a linear search through all polygons returning the closest one.
@@ -137,111 +159,114 @@ namespace Pathfinding {
 		 */
 		public override NNInfo GetNearestForce (Vector3 position, NNConstraint constraint) {
 			
-			return GetNearestForce (nodes,vertices,position,constraint);
+			return GetNearestForce (nodes,vertices,position,constraint, accurateNearestNode);
 			//Debug.LogWarning ("This function shouldn't be called since constrained nodes are sent back in the GetNearest call");
 			
 			//return new NNInfo ();
 		}
 		
 		/** This performs a linear search through all polygons returning the closest one */
-		public static NNInfo GetNearestForce (Node[] nodes, Int3[] vertices, Vector3 position, NNConstraint constraint) {
+		public static NNInfo GetNearestForce (Node[] nodes, Int3[] vertices, Vector3 position, NNConstraint constraint, bool accurateNearestNode) {
+			NNInfo nn = GetNearestForceBoth (nodes,vertices,position,constraint,accurateNearestNode);
+			nn.node = nn.constrainedNode;
+			nn.clampedPosition = nn.constClampedPosition;
+			return nn;
+		}
+		
+		/** This performs a linear search through all polygons returning the closest one.
+		  * This will fill the NNInfo with .node for the closest node not necessarily complying with the NNConstraint, and .constrainedNode with the closest node
+		  * complying with the NNConstraint.
+		  * \see GetNearestForce(Node[],Int3[],Vector3,NNConstraint,bool)
+		  */
+		public static NNInfo GetNearestForceBoth (Node[] nodes, Int3[] vertices, Vector3 position, NNConstraint constraint, bool accurateNearestNode) {
 			Int3 pos = (Int3)position;
-			//Replacement for Infinity, the maximum value a int can hold
-			int minDist = -1;
+			
+			float minDist = -1;
 			Node minNode = null;
 			
-			float minDist2 = -1;
-			Node minNode2 = null;
+			float minConstDist = -1;
+			Node minConstNode = null;
 			
-			int minConstDist = -1;
-			Node minNodeConst = null;
+			float maxDistSqr = constraint.constrainDistance ? AstarPath.active.maxNearestNodeDistanceSqr : float.PositiveInfinity;
 			
-			float minConstDist2 = -1;
-			Node minNodeConst2 = null;
-			
-			//int rnd = (int)Random.Range (0,10000);
-			
-			//int skipped = 0;
-			
+			if (nodes == null || nodes.Length == 0) {
+				return new NNInfo ();
+			}
 			
 			for (int i=0;i<nodes.Length;i++) {
 				MeshNode node = nodes[i] as MeshNode;
 				
-				if (!Polygon.IsClockwise (vertices[node.v1],vertices[node.v2],pos) || !Polygon.IsClockwise (vertices[node.v2],vertices[node.v3],pos) || !Polygon.IsClockwise (vertices[node.v3],vertices[node.v1],pos))
-				{
-				//Polygon.TriangleArea2 (vertices[node.v1],vertices[node.v2],pos) >= 0 || Polygon.TriangleArea2 (vertices[node.v2],vertices[node.v3],pos) >= 0 || Polygon.TriangleArea2 (vertices[node.v3],vertices[node.v1],pos) >= 0) {
+				if (accurateNearestNode) {
 					
-					/*if (minDist2 != -1) {
-						float d1 = (node.position-vertices[node.v1]).sqrMagnitude;
-						d1 = Mathf.Min (d1,(node.position-vertices[node.v1]).sqrMagnitude);
-						d1 = Mathf.Min (d1,(node.position-vertices[node.v1]).sqrMagnitude);
-						
-						//The closest distance possible from the current node to 'pos'
-						d1 = (node.position-pos).sqrMagnitude-d1;
-						
-						if (d1 > minDist2) {
-							skipped++;
-							continue;
-						}
-					}*/
+					Vector3 closest = Polygon.ClosestPointOnTriangle((Vector3)vertices[node.v1],(Vector3)vertices[node.v2],(Vector3)vertices[node.v3],position);
+					float dist = ((Vector3)pos-closest).sqrMagnitude;
 					
-					/*float dist2 = Mathfx.DistancePointSegment2 (pos.x,pos.z,vertices[node.v1].x,vertices[node.v1].z,vertices[node.v2].x,vertices[node.v2].z);
-					dist2 = Mathfx.Min (dist2,Mathfx.DistancePointSegment2 (pos.x,pos.z,vertices[node.v1].x,vertices[node.v1].z,vertices[node.v3].x,vertices[node.v3].z));
-					dist2 = Mathfx.Min (dist2,Mathfx.DistancePointSegment2 (pos.x,pos.z,vertices[node.v3].x,vertices[node.v3].z,vertices[node.v2].x,vertices[node.v2].z));*/
-					
-					float dist2 = (node.position-pos).sqrMagnitude;
-					if (minDist2 == -1 || dist2 < minDist2) {
-						minDist2 = dist2;
-						minNode2 = node;
+					if (minNode == null || dist < minDist) {
+						minDist = dist;
+						minNode = node;
 					}
 					
-					if (constraint.Suitable (node)) {
-						if (minConstDist2 == -1 || dist2 < minConstDist2) {
-							minConstDist2 = dist2;
-							minNodeConst2 = node;
+					if (dist < maxDistSqr && constraint.Suitable (node)) {
+						if (minConstNode == null || dist < minConstDist) {
+							minConstDist = dist;
+							minConstNode = node;
 						}
 					}
 					
-					continue;
-				}
-				
-				
-				int dist = Mathfx.Abs (node.position.y-pos.y);
-				
-				if (minDist == -1 || dist < minDist) {
-					minDist = dist;
-					minNode = node;
-				}
-				
-				if (constraint.Suitable (node)) {
-					if (minConstDist == -1 || dist < minConstDist) {
-						minConstDist = dist;
-						minNodeConst = node;
+				} else {
+					if (!Polygon.IsClockwise (vertices[node.v1],vertices[node.v2],pos) || !Polygon.IsClockwise (vertices[node.v2],vertices[node.v3],pos) || !Polygon.IsClockwise (vertices[node.v3],vertices[node.v1],pos))
+					{
+						
+						float dist = (node.position-pos).sqrMagnitude;
+						if (minNode == null || dist < minDist) {
+							minDist = dist;
+							minNode = node;
+						}
+						
+						if (dist < maxDistSqr && constraint.Suitable (node)) {
+							if (minConstNode == null || dist < minConstDist) {
+								minConstDist = dist;
+								minConstNode = node;
+							}
+						}
+						
+					} else {
+					
+						
+						int dist = Mathfx.Abs (node.position.y-pos.y);
+						
+						if (minNode == null || dist < minDist) {
+							minDist = dist;
+							minNode = node;
+						}
+						
+						if (dist < maxDistSqr && constraint.Suitable (node)) {
+							if (minConstNode == null || dist < minConstDist) {
+								minConstDist = dist;
+								minConstNode = node;
+							}
+						}
 					}
 				}
 			}
 			
-			NNInfo nninfo = new NNInfo (minNode == null ? minNode2 : minNode, minNode == null ? NearestNodePriority.Low : NearestNodePriority.High);
+			NNInfo nninfo = new NNInfo (minNode);
 			
 			//Find the point closest to the nearest triangle
-			//if (minNode == null) {
 				
 			if (nninfo.node != null) {
 				MeshNode node = nninfo.node as MeshNode;//minNode2 as MeshNode;
 				
-				Vector3[] triangle = new Vector3[3] {vertices[node.v1],vertices[node.v2],vertices[node.v3]};
-				Vector3 clP = Polygon.ClosesPointOnTriangle (triangle,position);
+				Vector3 clP = Polygon.ClosestPointOnTriangle ((Vector3)vertices[node.v1],(Vector3)vertices[node.v2],(Vector3)vertices[node.v3],position);
 				
 				nninfo.clampedPosition = clP;
 			}
 			
-			nninfo.constrainedNode = minNodeConst == null ? minNodeConst2 : minNodeConst;
-			
+			nninfo.constrainedNode = minConstNode;
 			if (nninfo.constrainedNode != null) {
 				MeshNode node = nninfo.constrainedNode as MeshNode;//minNode2 as MeshNode;
 				
-				Vector3[] triangle = new Vector3[3] {vertices[node.v1],vertices[node.v2],vertices[node.v3]};
-				Vector3 clP = Polygon.ClosesPointOnTriangle (triangle,position);
+				Vector3 clP = Polygon.ClosestPointOnTriangle ((Vector3)vertices[node.v1],(Vector3)vertices[node.v2],(Vector3)vertices[node.v3],position);
 				
 				nninfo.constClampedPosition = clP;
 			}
@@ -249,11 +274,11 @@ namespace Pathfinding {
 			return nninfo;
 		}
 		
-		public void BuildFunnelCorridor (Node[] path, int startIndex, int endIndex, List<Vector3> left, List<Vector3> right) {
+		public void BuildFunnelCorridor (List<Node> path, int startIndex, int endIndex, List<Vector3> left, List<Vector3> right) {
 			BuildFunnelCorridor (this,path,startIndex,endIndex,left,right);
 		}
 		
-		public static void BuildFunnelCorridor (INavmesh graph, Node[] path, int startIndex, int endIndex, List<Vector3> left, List<Vector3> right) {
+		public static void BuildFunnelCorridor (INavmesh graph, List<Node> path, int startIndex, int endIndex, List<Vector3> left, List<Vector3> right) {
 			
 			if (graph == null) {
 				Debug.LogError ("Couldn't cast graph to the appropriate type (graph isn't a Navmesh type graph, it doesn't implement the INavmesh interface)");
@@ -296,10 +321,10 @@ namespace Pathfinding {
 				}
 				
 				if (first == -1 || second == -1) {
-					left.Add (n1.position);
-					right.Add (n1.position);
-					left.Add (n2.position);
-					right.Add (n2.position);
+					left.Add ((Vector3)n1.position);
+					right.Add ((Vector3)n1.position);
+					left.Add ((Vector3)n2.position);
+					right.Add ((Vector3)n2.position);
 					lastLeftIndex = first;
 					lastRightIndex = second;
 					
@@ -308,26 +333,26 @@ namespace Pathfinding {
 					//Debug.DrawLine ((Vector3)vertices[first]+Vector3.up*0.1F,(Vector3)vertices[second]+Vector3.up*0.1F,Color.cyan);
 					//Debug.Log (first+" "+second);
 					if (first == lastLeftIndex) {
-						left.Add (vertices[first]);
-						right.Add (vertices[second]);
+						left.Add ((Vector3)vertices[first]);
+						right.Add ((Vector3)vertices[second]);
 						lastLeftIndex = first;
 						lastRightIndex = second;
 						
 					} else if (first == lastRightIndex) {
-						left.Add (vertices[second]);
-						right.Add (vertices[first]);
+						left.Add ((Vector3)vertices[second]);
+						right.Add ((Vector3)vertices[first]);
 						lastLeftIndex = second;
 						lastRightIndex = first;
 						
 					} else if (second == lastLeftIndex) {
-						left.Add (vertices[second]);
-						right.Add (vertices[first]);
+						left.Add ((Vector3)vertices[second]);
+						right.Add ((Vector3)vertices[first]);
 						lastLeftIndex = second;
 						lastRightIndex = first;
 						
 					} else {
-						left.Add (vertices[first]);
-						right.Add (vertices[second]);
+						left.Add ((Vector3)vertices[first]);
+						right.Add ((Vector3)vertices[second]);
 						lastLeftIndex = first;
 						lastRightIndex = second;
 					}
@@ -354,7 +379,7 @@ namespace Pathfinding {
 				return;// new NNInfo ();
 			}
 			
-			//System.DateTime startTime = System.DateTime.Now;
+			//System.DateTime startTime = System.DateTime.UtcNow;
 				
 			Bounds bounds = o.bounds;
 			
@@ -434,7 +459,7 @@ namespace Pathfinding {
 				//Debug.Break ();
 			}
 			
-			//System.DateTime endTime = System.DateTime.Now;
+			//System.DateTime endTime = System.DateTime.UtcNow;
 			//float theTime = (endTime-startTime).Ticks*0.0001F;
 			//Debug.Log ("Intersecting bounds with navmesh took "+theTime.ToString ("0.000")+" ms");
 		
@@ -442,12 +467,14 @@ namespace Pathfinding {
 		
 		/** Returns the closest point of the node */
 		public static Vector3 ClosestPointOnNode (MeshNode node, Int3[] vertices, Vector3 pos) {
-			return Polygon.ClosesPointOnTriangle (vertices[node[0]],vertices[node[1]],vertices[node[2]],pos);
+			return Polygon.ClosestPointOnTriangle ((Vector3)vertices[node[0]],(Vector3)vertices[node[1]],(Vector3)vertices[node[2]],pos);
 		}
 		
 		/** Returns if the point is inside the node in XZ space */
 		public bool ContainsPoint (MeshNode node, Vector3 pos) {
-			if (Polygon.IsClockwise ((Vector3)vertices[node.v1],(Vector3)vertices[node.v2], pos) && Polygon.IsClockwise ((Vector3)vertices[node.v2],(Vector3)vertices[node.v3], pos) && Polygon.IsClockwise ((Vector3)vertices[node.v3],(Vector3)vertices[node.v1], pos)) {
+			if (	Polygon.IsClockwise ((Vector3)vertices[node.v1],(Vector3)vertices[node.v2], pos)
+			    && 	Polygon.IsClockwise ((Vector3)vertices[node.v2],(Vector3)vertices[node.v3], pos)
+			    && 	Polygon.IsClockwise ((Vector3)vertices[node.v3],(Vector3)vertices[node.v1], pos)) {
 				return true;
 			}
 			return false;
@@ -455,13 +482,19 @@ namespace Pathfinding {
 		
 		/** Returns if the point is inside the node in XZ space */
 		public static bool ContainsPoint (MeshNode node, Vector3 pos, Int3[] vertices) {
-			if (Polygon.IsClockwiseMargin ((Vector3)vertices[node.v1],(Vector3)vertices[node.v2], pos) && Polygon.IsClockwiseMargin ((Vector3)vertices[node.v2],(Vector3)vertices[node.v3], pos) && Polygon.IsClockwiseMargin ((Vector3)vertices[node.v3],(Vector3)vertices[node.v1], pos)) {
+			if (!Polygon.IsClockwiseMargin ((Vector3)vertices[node.v1],(Vector3)vertices[node.v2], (Vector3)vertices[node.v3])) {
+				Debug.LogError ("Noes!");
+			}
+			
+			if ( 	Polygon.IsClockwiseMargin ((Vector3)vertices[node.v1],(Vector3)vertices[node.v2], pos)
+			    && 	Polygon.IsClockwiseMargin ((Vector3)vertices[node.v2],(Vector3)vertices[node.v3], pos)
+			    && 	Polygon.IsClockwiseMargin ((Vector3)vertices[node.v3],(Vector3)vertices[node.v1], pos)) {
 				return true;
 			}
 			return false;
 		}
 		
-		/** Scanns the graph using the path to an .obj mesh */
+		/** Scans the graph using the path to an .obj mesh */
 		public void Scan (string objMeshPath) {
 			
 			Mesh mesh = ObjImporter.ImportFile (objMeshPath);
@@ -591,7 +624,7 @@ namespace Pathfinding {
 			for (int i=0;i<c;i++) {
 				
 				vertices[i] = totalIntVertices[newVertices[i]];//(Int3)graph.matrix.MultiplyPoint (vectorVertices[i]);
-				originalVertices[i] = vertices[i];//vectorVertices[newVertices[i]];
+				originalVertices[i] = (Vector3)vertices[i];//vectorVertices[newVertices[i]];
 			}
 			
 			Node[] nodes = graph.CreateNodes (triangles.Length/3);//new Node[triangles.Length/3];
@@ -618,9 +651,9 @@ namespace Pathfinding {
 				}
 				
 				if (Polygon.IsColinear (vertices[node.v1],vertices[node.v2],vertices[node.v3])) {
-					Debug.DrawLine (vertices[node.v1],vertices[node.v2],Color.red);
-					Debug.DrawLine (vertices[node.v2],vertices[node.v3],Color.red);
-					Debug.DrawLine (vertices[node.v3],vertices[node.v1],Color.red);
+					Debug.DrawLine ((Vector3)vertices[node.v1],(Vector3)vertices[node.v2],Color.red);
+					Debug.DrawLine ((Vector3)vertices[node.v2],(Vector3)vertices[node.v3],Color.red);
+					Debug.DrawLine ((Vector3)vertices[node.v3],(Vector3)vertices[node.v1],Color.red);
 				}
 				
 				nodes[i] = node;
@@ -659,16 +692,16 @@ namespace Pathfinding {
 					
 					if (count >= 3) {
 						identicalError++;
-						Debug.DrawLine (vertices[triangles[x]],vertices[triangles[x+1]],Color.red);
-						Debug.DrawLine (vertices[triangles[x]],vertices[triangles[x+2]],Color.red);
-						Debug.DrawLine (vertices[triangles[x+2]],vertices[triangles[x+1]],Color.red);
+						Debug.DrawLine ((Vector3)vertices[triangles[x]],(Vector3)vertices[triangles[x+1]],Color.red);
+						Debug.DrawLine ((Vector3)vertices[triangles[x]],(Vector3)vertices[triangles[x+2]],Color.red);
+						Debug.DrawLine ((Vector3)vertices[triangles[x+2]],(Vector3)vertices[triangles[x+1]],Color.red);
 						
 					}
 					
 					if (count == 2) {
 						Node other = nodes[x/3];
 						connections.Add (other);
-						connectionCosts.Add (Mathf.RoundToInt ((node.position-other.position).magnitude));
+						connectionCosts.Add (Mathf.RoundToInt ((node.position-other.position).costMagnitude));
 					}
 				}
 				
@@ -686,10 +719,11 @@ namespace Pathfinding {
 		
 		/** Rebuilds the BBTree on a NavGraph.
 		 * \astarpro
-		 * \see NavMeshGraph::bbTree */
+		 * \see NavMeshGraph.bbTree */
 		public static void RebuildBBTree (NavGraph graph) {
 			//BBTrees is a A* Pathfinding Project Pro only feature - The Pro version can be bought on the Unity Asset Store or on arongranberg.com
 		}
+		
 		public void PostProcess () {
 			int rnd = Random.Range (0,nodes.Length);
 			
@@ -714,7 +748,7 @@ namespace Pathfinding {
 			Node otherNode = gr.nodes[rnd];
 			
 			connections.Add (otherNode);
-			connectionCosts.Add (Mathf.RoundToInt ((nodex.position-otherNode.position).magnitude*100));
+			connectionCosts.Add ((nodex.position-otherNode.position).costMagnitude);
 			
 			nodex.connections = connections.ToArray ();
 			nodex.connectionCosts = connectionCosts.ToArray ();
@@ -765,15 +799,15 @@ namespace Pathfinding {
 				
 				MeshNode node = (MeshNode)nodes[i];
 				
-				Gizmos.color = NodeColor (node);//AstarColor.NodeConnection;
+				Gizmos.color = NodeColor (node,AstarPath.active.debugPathData);
 				
 				if (node.walkable ) {
 					
-					if (node.parent != null) {
-						Gizmos.DrawLine (node.position,node.parent.position);
+					if (AstarPath.active.showSearchTree && AstarPath.active.debugPathData != null && node.GetNodeRun(AstarPath.active.debugPathData).parent != null) {
+						Gizmos.DrawLine ((Vector3)node.position,(Vector3)node.GetNodeRun(AstarPath.active.debugPathData).parent.node.position);
 					} else {
 						for (int q=0;q<node.connections.Length;q++) {
-							Gizmos.DrawLine (node.position,node.connections[q].position);
+							Gizmos.DrawLine ((Vector3)node.position,(Vector3)node.connections[q].position);
 						}
 					}
 				
@@ -781,13 +815,94 @@ namespace Pathfinding {
 				} else {
 					Gizmos.color = Color.red;
 				}
-				Gizmos.DrawLine (vertices[node.v1],vertices[node.v2]);
-				Gizmos.DrawLine (vertices[node.v2],vertices[node.v3]);
-				Gizmos.DrawLine (vertices[node.v3],vertices[node.v1]);
+				Gizmos.DrawLine ((Vector3)vertices[node.v1],(Vector3)vertices[node.v2]);
+				Gizmos.DrawLine ((Vector3)vertices[node.v2],(Vector3)vertices[node.v3]);
+				Gizmos.DrawLine ((Vector3)vertices[node.v3],(Vector3)vertices[node.v1]);
 				
 			}
 			
 		}
+		
+		public override byte[] SerializeExtraInfo () {
+			return SerializeMeshNodes (this,nodes);
+		}
+		
+		public override void DeserializeExtraInfo (byte[] bytes) {
+			DeserializeMeshNodes (this,nodes,bytes);
+		}
+		
+		public static void DeserializeMeshNodes (INavmesh graph, Node[] nodes, byte[] bytes) {
+			
+			System.IO.MemoryStream mem = new System.IO.MemoryStream(bytes);
+			System.IO.BinaryReader stream = new System.IO.BinaryReader(mem);
+			
+			for (int i=0;i<nodes.Length;i++) {
+				MeshNode node = nodes[i] as MeshNode;
+				
+				if (node == null) {
+					Debug.LogError ("Serialization Error : Couldn't cast the node to the appropriate type - NavMeshGenerator");
+					return;
+				}
+				
+				node.v1 = stream.ReadInt32 ();
+				node.v2 = stream.ReadInt32 ();
+				node.v3 = stream.ReadInt32 ();
+				
+			}
+			
+			int numVertices = stream.ReadInt32 ();
+			
+			graph.vertices = new Int3[numVertices];
+			
+			for (int i=0;i<numVertices;i++) {
+				int x = stream.ReadInt32 ();
+				int y = stream.ReadInt32 ();
+				int z = stream.ReadInt32 ();
+				
+				graph.vertices[i] = new Int3 (x,y,z);
+			}
+			
+			RebuildBBTree (graph as NavGraph);
+		}
+		
+		//These functions are for serialization, the static ones are there so other graphs using mesh nodes can serialize them more easily
+		public static byte[] SerializeMeshNodes (INavmesh graph, Node[] nodes) {
+			
+			System.IO.MemoryStream mem = new System.IO.MemoryStream();
+			System.IO.BinaryWriter stream = new System.IO.BinaryWriter(mem);
+			
+			for (int i=0;i<nodes.Length;i++) {
+				MeshNode node = nodes[i] as MeshNode;
+				
+				if (node == null) {
+					Debug.LogError ("Serialization Error : Couldn't cast the node to the appropriate type - NavMeshGenerator. Omitting node data.");
+					return null;
+				}
+				
+				stream.Write (node.v1);
+				stream.Write (node.v2);
+				stream.Write (node.v3);
+			}
+			
+			Int3[] vertices = graph.vertices;
+			
+			if (vertices == null) {
+				vertices = new Int3[0];
+			}
+			
+			stream.Write (vertices.Length);
+			
+			for (int i=0;i<vertices.Length;i++) {
+				stream.Write (vertices[i].x);
+				stream.Write (vertices[i].y);
+				stream.Write (vertices[i].z);
+			}
+			
+			stream.Close ();
+			return mem.ToArray();
+		}
+		
+#region OldSerializer
 		
 		//These functions are for serialization, the static ones are there so other graphs using mesh nodes can serialize them more easily
 		public static void SerializeMeshNodes (INavmesh graph, Node[] nodes, AstarSerializer serializer) {
@@ -925,36 +1040,8 @@ namespace Pathfinding {
 				sourceMesh.triangles = tris;
 			}
 		}
-	}
-	
-	public class MeshNode : Node {
-		//Vertices
-		public int v1;
-		public int v2;
-		public int v3;
 		
-		public int GetVertexIndex (int i) {
-			if (i == 0) {
-				return v1;
-			} else if (i == 1) {
-				return v2;
-			} else if (i == 2) {
-				return v3;
-			} else {
-				throw new System.ArgumentOutOfRangeException ("A MeshNode only contains 3 vertices");
-			}
-		}
+#endregion
 		
-		public int this[int i]
-	    {
-	        get
-	        {
-	            return GetVertexIndex (i);
-	        }
-	    }
-	    
-	    public Vector3 ClosestPoint (Vector3 p, Int3[] vertices) {
-	    	return Polygon.ClosesPointOnTriangle (vertices[v1],vertices[v2],vertices[v3],p);
-	    }
 	}
 }

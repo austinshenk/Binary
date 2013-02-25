@@ -1,200 +1,11 @@
-//Thanks to whoever wrote the Matrix class on the wiki, it has been a great help.
+
 using UnityEngine;
 using System.Collections;
 using Pathfinding;
 using System;
+using System.Collections.Generic;
 
 namespace Pathfinding {
-	
-	/** Matrix implementation.
-	 * \ingroup utils
-	 */
-	public class Matrix
-	{
-		public float[] m;
-	
-		public Matrix()
-		{	 
-			LoadIdentity();
-		}	 
-	
-		// Loads this matrix with an identity matrix
-	
-		public void LoadIdentity()
-		{
-			m = new float[ 16 ];
-	
-			for( int x = 0 ; x < 16 ; ++x )
-			{
-				m[ x ] = 0;
-			}	 
-	
-			m [ 0 ] = 1;
-			m [ 5 ] = 1;
-			m [ 10 ] = 1;
-			m [ 15 ] = 1;
-		}
-	
-		// Returns a translation matrix along the XYZ axes
-	
-		public static Matrix Translate( float _X, float _Y, float _Z )
-		{
-			Matrix wk = new Matrix();
-	
-			wk.m [ 12 ] = _X;
-			wk.m [ 13 ] = _Y;
-			wk.m [ 14 ] = _Z;
-	
-			return wk;
-		}
-		
-		public Matrix translate( float _X, float _Y, float _Z )
-		{
-			m [ 12 ] = _X;
-			m [ 13 ] = _Y;
-			m [ 14 ] = _Z;
-			return this;
-		}
-	
-		// Returns a rotation matrix around the X axis
-	
-		public static Matrix RotateX( float _Degree )
-		{
-			Matrix wk = new Matrix();
-	
-			if( _Degree == 0 )
-			{
-				return wk;
-			}
-	
-			float C = Mathf.Cos( _Degree * Mathf.Deg2Rad );
-			float S = Mathf.Sin( _Degree * Mathf.Deg2Rad );
-	
-			wk.m [ 5 ] = C;
-			wk.m [ 6 ] = S;
-			wk.m [ 9 ] = -S;
-			wk.m [ 10 ] = C;
-	
-			return wk;
-		}
-	
-		// Returns a rotation matrix around the Y axis
-	
-		public static Matrix RotateY( float _Degree )
-		{
-			Matrix wk = new Matrix();
-	
-			if( _Degree == 0 )
-			{
-				return wk;
-			}
-	
-			float C = Mathf.Cos( _Degree * Mathf.Deg2Rad );
-			float S = Mathf.Sin( _Degree * Mathf.Deg2Rad );
-	
-			wk.m [ 0 ] = C;
-			wk.m [ 2 ] = -S;
-			wk.m [ 8 ] = S;
-			wk.m [ 10 ] = C;
-	
-			return wk;
-		}
-	
-		// Returns a rotation matrix around the Z axis
-	
-		public static Matrix RotateZ( float _Degree )
-		{
-			Matrix wk = new Matrix();
-	
-			if( _Degree == 0 )
-			{
-				return wk;
-			}
-	
-			float C = Mathf.Cos( _Degree * Mathf.Deg2Rad );
-			float S = Mathf.Sin( _Degree * Mathf.Deg2Rad );
-	
-			wk.m [ 0 ] = C;
-			wk.m [ 1 ] = S;
-			wk.m [ 4 ] = -S;
-			wk.m [ 5 ] = C;
-	
-			return wk;
-		}
-	
-		// Returns a scale matrix uniformly scaled on the XYZ axes
-	
-		public static Matrix Scale( float _In )
-		{
-			return Matrix.Scale( _In, _In, _In );
-		}
-	
-		// Returns a scale matrix scaled on the XYZ axes
-	
-		public static Matrix Scale( float _X, float _Y, float _Z )
-		{
-			Matrix wk = new Matrix();
-	
-			wk.m [ 0 ] = _X;
-			wk.m [ 5 ] = _Y;
-			wk.m [ 10 ] = _Z;
-	
-			return wk;
-		}
-	
-		// Transforms a vector with this matrix
-	
-		public Vector3 TransformVector( Vector3 _V )
-		{
-			Vector3 vtx = new Vector3(0,0,0);
-	
-			vtx.x = ( _V.x * m [ 0 ] ) + ( _V.y * m [ 4 ] ) + ( _V.z * m [ 8 ] ) + m [ 12 ];
-			vtx.y = ( _V.x * m [ 1 ] ) + ( _V.y * m [ 5 ] ) + ( _V.z * m [ 9 ] ) + m [ 13 ];
-			vtx.z = ( _V.x * m [ 2 ] ) + ( _V.y * m [ 6 ] ) + ( _V.z * m [ 10 ] ) + m [ 14 ];
-	
-			return vtx;
-		}
-	
-		// Overloaded operators
-	
-		public static Matrix operator *( Matrix _A, Matrix _B )
-		{
-			Matrix wk = new Matrix();
-	
-			wk.m [ 0 ] = _A.m [ 0 ] * _B.m [ 0 ] + _A.m [ 4 ] * _B.m [ 1 ] + _A.m [ 8 ] * _B.m [ 2 ] + _A.m [ 12 ] * _B.m [ 3 ];
-			wk.m [ 4 ] = _A.m [ 0 ] * _B.m [ 4 ] + _A.m [ 4 ] * _B.m [ 5 ] + _A.m [ 8 ] * _B.m [ 6 ] + _A.m [ 12 ] * _B.m [ 7 ];
-			wk.m [ 8 ] = _A.m [ 0 ] * _B.m [ 8 ] + _A.m [ 4 ] * _B.m [ 9 ] + _A.m [ 8 ] * _B.m [ 10 ] + _A.m [ 12 ] * _B.m [ 11 ];
-			wk.m [ 12 ] = _A.m [ 0 ] * _B.m [ 12 ] + _A.m [ 4 ] * _B.m [ 13 ] + _A.m [ 8 ] * _B.m [ 14 ] + _A.m [ 12 ] * _B.m [ 15 ];
-	
-			wk.m [ 1 ] = _A.m [ 1 ] * _B.m [ 0 ] + _A.m [ 5 ] * _B.m [ 1 ] + _A.m [ 9 ] * _B.m [ 2 ] + _A.m [ 13 ] * _B.m [ 3 ];
-			wk.m [ 5 ] = _A.m [ 1 ] * _B.m [ 4 ] + _A.m [ 5 ] * _B.m [ 5 ] + _A.m [ 9 ] * _B.m [ 6 ] + _A.m [ 13 ] * _B.m [ 7 ];
-			wk.m [ 9 ] = _A.m [ 1 ] * _B.m [ 8 ] + _A.m [ 5 ] * _B.m [ 9 ] + _A.m [ 9 ] * _B.m [ 10 ] + _A.m [ 13 ] * _B.m [ 11 ];
-			wk.m [ 13 ] = _A.m [ 1 ] * _B.m [ 12 ] + _A.m [ 5 ] * _B.m [ 13 ] + _A.m [ 9 ] * _B.m [ 14 ] + _A.m [ 13 ] * _B.m [ 15 ];
-	
-			wk.m [ 2 ] = _A.m [ 2 ] * _B.m [ 0 ] + _A.m [ 6 ] * _B.m [ 1 ] + _A.m [ 10 ] * _B.m [ 2 ] + _A.m [ 14 ] * _B.m [ 3 ];
-			wk.m [ 6 ] = _A.m [ 2 ] * _B.m [ 4 ] + _A.m [ 6 ] * _B.m [ 5 ] + _A.m [ 10 ] * _B.m [ 6 ] + _A.m [ 14 ] * _B.m [ 7 ];
-			wk.m [ 10 ] = _A.m [ 2 ] * _B.m [ 8 ] + _A.m [ 6 ] * _B.m [ 9 ] + _A.m [ 10 ] * _B.m [ 10 ] + _A.m [ 14 ] * _B.m [ 11 ];
-			wk.m [ 14 ] = _A.m [ 2 ] * _B.m [ 12 ] + _A.m [ 6 ] * _B.m [ 13 ] + _A.m [ 10 ] * _B.m [ 14 ] + _A.m [ 14 ] * _B.m [ 15 ];
-	
-			wk.m [ 3 ] = _A.m [ 3 ] * _B.m [ 0 ] + _A.m [ 7 ] * _B.m [ 1 ] + _A.m [ 11 ] * _B.m [ 2 ] + _A.m [ 15 ] * _B.m [ 3 ];
-			wk.m [ 7 ] = _A.m [ 3 ] * _B.m [ 4 ] + _A.m [ 7 ] * _B.m [ 5 ] + _A.m [ 11 ] * _B.m [ 6 ] + _A.m [ 15 ] * _B.m [ 7 ];
-			wk.m [ 11 ] = _A.m [ 3 ] * _B.m [ 8 ] + _A.m [ 7 ] * _B.m [ 9 ] + _A.m [ 11 ] * _B.m [ 10 ] + _A.m [ 15 ] * _B.m [ 11 ];
-			wk.m [ 15 ] = _A.m [ 3 ] * _B.m [ 12 ] + _A.m [ 7 ] * _B.m [ 13 ] + _A.m [ 11 ] * _B.m [ 14 ] + _A.m [ 15 ] * _B.m [ 15 ];
-	
-			return wk;
-		}
-	}
-	
-	/*class Arrays {
-		/*public static bool Contains (Node[] arr,Node target) {
-			for (int i=0;i<arr.Length;i++) {
-				if (arr[i] == target) {
-					return true;
-				}
-			}
-			return false;
-		}*
-	}*/
 	
 	/** Contains various spline functions.
 	 * \ingroup utils
@@ -594,13 +405,14 @@ namespace Pathfinding {
 		
 	}
 	
-	/** Utility functions for working with polygons, lines, and other vector math
-	  * \ingroup utils */	
+	/** Utility functions for working with polygons, lines, and other vector math.
+	 * All functions which accepts Vector3s but work in 2D space uses the XZ space if nothing else is said.
+	  * \ingroup utils */
 	public class Polygon {
 		
 		/** Area of a triangle  This will be negative for clockwise triangles and positive for counter-clockwise ones */
-		public static int TriangleArea2 (Int3 a, Int3 b, Int3 c) {
-			return (b.x - a.x) * (c.z - a.z) - (c.x - a.x) * (b.z - a.z);
+		public static long TriangleArea2 (Int3 a, Int3 b, Int3 c) {
+			return (long)(b.x - a.x) * (long)(c.z - a.z) - (long)(c.x - a.x) * (long)(b.z - a.z);
 			//a.x*b.z+b.x*c.z+c.x*a.z-a.x*c.z-c.x*b.z-b.x*a.z;
 		}
 		
@@ -609,8 +421,8 @@ namespace Pathfinding {
 			//return a.x*b.z+b.x*c.z+c.x*a.z-a.x*c.z-c.x*b.z-b.x*a.z;
 		}
 		
-		public static int TriangleArea (Int3 a, Int3 b, Int3 c) {
-			return (b.x - a.x) * (c.z - a.z) - (c.x - a.x) * (b.z - a.z);
+		public static long TriangleArea (Int3 a, Int3 b, Int3 c) {
+			return (long)(b.x - a.x) * (long)(c.z - a.z) - (long)(c.x - a.x) * (long)(b.z - a.z);
 			//a.x*b.z+b.x*c.z+c.x*a.z-a.x*c.z-c.x*b.z-b.x*a.z;
 		}
 		
@@ -624,6 +436,9 @@ namespace Pathfinding {
 			return Polygon.IsClockwiseMargin (a,b, p) && Polygon.IsClockwiseMargin (b,c, p) && Polygon.IsClockwiseMargin (c,a, p);
 		}
 		
+		/** Checks if \a p is inside the polygon.
+		 * \author http://unifycommunity.com/wiki/index.php?title=PolyContainsPoint (Eric5h5)
+		 */
 		public static bool ContainsPoint (Vector2[] polyPoints,Vector2 p) { 
 		   int j = polyPoints.Length-1; 
 		   bool inside = false; 
@@ -636,17 +451,34 @@ namespace Pathfinding {
 		   return inside; 
 		}
 		
+		/** Checks if \a p is inside the polygon (XZ space)
+		 * \author http://unifycommunity.com/wiki/index.php?title=PolyContainsPoint (Eric5h5)
+		 */
+		public static bool ContainsPoint (Vector3[] polyPoints,Vector3 p) { 
+		   int j = polyPoints.Length-1; 
+		   bool inside = false; 
+		   
+		   for (int i = 0; i < polyPoints.Length; j = i++) { 
+		      if ( ((polyPoints[i].z <= p.z && p.z < polyPoints[j].z) || (polyPoints[j].z <= p.z && p.z < polyPoints[i].z)) && 
+		         (p.x < (polyPoints[j].x - polyPoints[i].x) * (p.z - polyPoints[i].z) / (polyPoints[j].z - polyPoints[i].z) + polyPoints[i].x)) 
+		         inside = !inside; 
+		   } 
+		   return inside; 
+		}
+		
 		/** Returns if \a p lies on the left side of the line \a a - \a b. Uses XZ space. Also returns true if the points are colinear */
 		public static bool Left (Vector3 a, Vector3 b, Vector3 p) {
 			return (b.x - a.x) * (p.z - a.z) - (p.x - a.x) * (b.z - a.z) <= 0;
 		}
 		
 		/** Returns if \a p lies on the left side of the line \a a - \a b. Uses XZ space. Also returns true if the points are colinear */
-		public static bool Left (Int3 a, Int3 b, Int3 p) {
-			return (b.x - a.x) * (p.z - a.z) - (p.x - a.x) * (b.z - a.z) <= 0;
+		public static bool Left (Int3 a, Int3 b, Int3 c) {
+			return (long)(b.x - a.x) * (long)(c.z - a.z) - (long)(c.x - a.x) * (long)(b.z - a.z) <= 0;
 		}
 		
-		/** Returns if the points a in a clockwise order. Will return true even if the points are colinear or slightly counter-clockwise (if the signed area of the triangle formed by the points has an area less than float.Epsilon) */
+		/** Returns if the points a in a clockwise order.
+		 * Will return true even if the points are colinear or very slightly counter-clockwise
+		 * (if the signed area of the triangle formed by the points has an area less than or equals to float.Epsilon) */
 		public static bool IsClockwiseMargin (Vector3 a, Vector3 b, Vector3 c) {
 			return (b.x-a.x)*(c.z-a.z)-(c.x-a.x)*(b.z-a.z) <= float.Epsilon;
 		}
@@ -658,12 +490,12 @@ namespace Pathfinding {
 		
 		/** Returns if the points a in a clockwise order */
 		public static bool IsClockwise (Int3 a, Int3 b, Int3 c) {
-			return (b.x-a.x)*(c.z-a.z)-(c.x-a.x)*(b.z-a.z) < 0;
+			return (long)(b.x - a.x) * (long)(c.z - a.z) - (long)(c.x - a.x) * (long)(b.z - a.z) < 0;
 		}
 		
 		/** Returns if the points are colinear (lie on a straight line) */
 		public static bool IsColinear (Int3 a, Int3 b, Int3 c) {
-			return (b.x-a.x)*(c.z-a.z)-(c.x-a.x)*(b.z-a.z) == 0;
+			return (long)(b.x - a.x) * (long)(c.z - a.z) - (long)(c.x - a.x) * (long)(b.z - a.z) == 0;
 		}
 		
 		/** Returns if the points are colinear (lie on a straight line) */
@@ -778,7 +610,8 @@ namespace Pathfinding {
 			return true;
 		}
 		
-		/** Returns the intersection factor for line 1 with line 2. The intersection factor is a distance along the line \a start1 - \a end1 where the line \a start2 - \a end2 intersects it.\n
+		/** Returns the intersection factor for line 1 with line 2.
+		 * The intersection factor is a distance along the line \a start1 - \a end1 where the line \a start2 - \a end2 intersects it.\n
 		 * \code intersectionPoint = start1 + intersectionFactor * (end1-start1) \endcode.
 		 * Lines are treated as infinite.\n
 		 * -1 is returned if the lines are parallel (note that this is a valid return value if they are not parallel too) */
@@ -839,6 +672,39 @@ namespace Pathfinding {
 			return start1 + dir1*u;
 		}
 		
+		/** Returns the intersection point between the two lines. Lines are treated as infinite. \a start1 is returned if the lines are parallel */
+		public static Vector2 IntersectionPoint (Vector2 start1, Vector2 end1, Vector2 start2, Vector2 end2) {
+			bool s;
+			return IntersectionPoint (start1,end1,start2,end2, out s);
+		}
+		
+		/** Returns the intersection point between the two lines. Lines are treated as infinite. \a start1 is returned if the lines are parallel */
+		public static Vector2 IntersectionPoint (Vector2 start1, Vector2 end1, Vector2 start2, Vector2 end2, out bool intersects) {
+			
+			Vector2 dir1 = end1-start1;
+			Vector2 dir2 = end2-start2;
+			
+			//Color rnd = new Color (Random.value,Random.value,Random.value);
+			//Debug.DrawRay (start1,dir1,rnd);
+			//Debug.DrawRay (start2,dir2,rnd);
+			
+			float den = dir2.y*dir1.x - dir2.x * dir1.y;
+			
+			if (den == 0) {
+				intersects = false;
+				return start1;
+			}
+			
+			float nom = dir2.x*(start1.y-start2.y)- dir2.y*(start1.x-start2.x);
+			
+			float u = nom/den;
+			
+			//Debug.DrawLine (start2,end2,Color.magenta);
+			//Debug.DrawRay (start1,dir1*5,Color.green);
+			intersects = true;
+			return start1 + dir1*u;
+		}
+		
 		/** Returns the intersection point between the two line segments.
 		 * Lines are NOT treated as infinite. \a start1 is returned if the line segments do not intersect */
 		public static Vector3 SegmentIntersectionPoint (Vector3 start1, Vector3 end1, Vector3 start2, Vector3 end2, out bool intersects) {
@@ -872,6 +738,46 @@ namespace Pathfinding {
 			//Debug.DrawRay (start1,dir1*5,Color.green);
 			intersects = true;
 			return start1 + dir1*u;
+		}
+		
+		public static List<Vector3> hullCache = new List<Vector3>();
+		
+		/** Calculates convex hull in XZ space for the points.
+		  * Implemented using the very simple Gift Wrapping Algorithm
+		  * which has a complexity of O(nh) where \a n is the number of points and \a h is the number of points on the hull,
+		  * so it is in the worst case quadratic.
+		  */
+		public static Vector3[] ConvexHull (Vector3[] points) {
+			
+			if (points.Length == 0) return new Vector3[0]; 
+			
+			lock (hullCache) {
+				List<Vector3> hull = hullCache;
+				hull.Clear ();
+				
+				
+				int pointOnHull = 0;
+				for (int i=1;i<points.Length;i++) if (points[i].x < points[pointOnHull].x) pointOnHull = i;
+				
+				int startpoint = pointOnHull;
+				int counter = 0;
+				
+				do {
+					hull.Add (points[pointOnHull]);
+					int endpoint = 0;
+					for (int i=0;i<points.Length;i++) if (endpoint == pointOnHull || !Left (points[pointOnHull],points[endpoint],points[i])) endpoint = i;
+					
+					pointOnHull = endpoint;
+					
+					counter++;
+					if (counter > 10000) {
+						Debug.LogWarning ("Infinite Loop in Convex Hull Calculation");
+						break;
+					}
+				} while (pointOnHull != startpoint);
+				
+				return hull.ToArray ();
+			}
 		}
 		
 		/** Does the line segment intersect the bounding box.
@@ -967,13 +873,13 @@ namespace Pathfinding {
 		/** Returns the closest point on the triangle. The \a triangle array must have a length of at least 3.
 		 * \see ClosesPointOnTriangle(Vector3,Vector3,Vector3,Vector3);
 		 */
-		public static Vector3 ClosesPointOnTriangle ( Vector3[] triangle, Vector3 point ) {
-			return ClosesPointOnTriangle (triangle[0],triangle[1],triangle[2],point);
+		public static Vector3 ClosestPointOnTriangle ( Vector3[] triangle, Vector3 point ) {
+			return ClosestPointOnTriangle (triangle[0],triangle[1],triangle[2],point);
 		}
 		
 		/** Returns the closest point on the triangle. \note Got code from the internet, changed a bit to work with the Unity API
 		  * \todo Uses Dot product to get the sqrMagnitude of a vector, should change to sqrMagnitude for readability and possibly for speed (unlikely though) */
-		public static Vector3 ClosesPointOnTriangle (Vector3 tr0, Vector3 tr1, Vector3 tr2, Vector3 point ) {
+		public static Vector3 ClosestPointOnTriangle (Vector3 tr0, Vector3 tr1, Vector3 tr2, Vector3 point ) {
 		    Vector3 edge0 = tr1 - tr0;
 		    Vector3 edge1 = tr2 - tr0;
 		    Vector3 v0 = tr0 - point;

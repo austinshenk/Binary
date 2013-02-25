@@ -1,4 +1,4 @@
-//#define DEBUG //Enable for some debug lines showing the DynamicGridObstacle activity
+//#define ASTARDEBUG //Enable for some debug lines showing the DynamicGridObstacle activity
 
 using UnityEngine;
 using System.Collections;
@@ -6,19 +6,17 @@ using Pathfinding;
 
 /** Attach this script to any obstacle with a collider to enable dynamic updates of the graphs around it.
  * When the object has moved a certain distance (or actually when it's bounding box has changed by a certain amount) defined by #updateError
- * it will call AstarPath::UpdateGraphs and update the graph around it.
- * \note This will not work very good when using erosion on the grid since erosion is done in a post-processing step after scanning
- * and is very difficult to update without rescanning the whole grid.
- * \note This script does only work with GridGraph and ListGraph
- * \see AstarPath::UpdateGraphs
+ * it will call AstarPath.UpdateGraphs and update the graph around it.
+ * 
+ * \note This script does only work with GridGraph, PointGraph and LayerGridGraph
+ * 
+ * \see AstarPath.UpdateGraphs
  */
 public class DynamicGridObstacle : MonoBehaviour {
 	
 	Collider col;
 	public float updateError = 1; /**< The minimum change along one of the axis of the bounding box of collider to trigger a graph update */
 	public float checkTime = 0.2F; /**< Time in seconds between bounding box checks */
-	public bool simple = false; /**< Does not use physics to rasterize the object to the grid.
-		Use only if there are no static obstacles in the grid and the object is axis aligned */
 	
 	/** Use this for initialization */
 	void Start () {
@@ -64,7 +62,9 @@ public class DynamicGridObstacle : MonoBehaviour {
 				//Update the graphs as soon as possible
 				//DoUpdateGraphs and DoUpdateGraphs2 will be called (in order) when there is an opportunity to update graphs
 				isWaitingForUpdate = true;
-				AstarPath.active.RegisterCanUpdateGraphs (DoUpdateGraphs, DoUpdateGraphs2);
+				/** \bug Fix Update Graph Passes */
+				DoUpdateGraphs ();
+				//AstarPath.active.RegisterCanUpdateGraphs (DoUpdateGraphs, DoUpdateGraphs2);
 				
 			}
 			
@@ -90,7 +90,7 @@ public class DynamicGridObstacle : MonoBehaviour {
 		isWaitingForUpdate = false;
 		Bounds newBounds = col.bounds;
 		
-		if (!simple) {
+		//if (!simple) {
 			Bounds merged = newBounds;
 			merged.Encapsulate (prevBounds);
 			
@@ -100,20 +100,20 @@ public class DynamicGridObstacle : MonoBehaviour {
 				AstarPath.active.UpdateGraphs (prevBounds);
 				AstarPath.active.UpdateGraphs (newBounds);
 			}
-		} else {
+		/*} else {
 			GraphUpdateObject guo = new GraphUpdateObject (prevBounds);
 			guo.updatePhysics = false;
 			guo.modifyWalkability = true;
 			guo.setWalkability = true;
 			
 			AstarPath.active.UpdateGraphs (guo);
-		}
+		}*/
 		
 		
 		prevBounds = newBounds;
 	}
 	
-	public void DoUpdateGraphs2 () {
+	/*public void DoUpdateGraphs2 () {
 		if (col == null) { return; }
 		
 		if (simple) {
@@ -123,7 +123,7 @@ public class DynamicGridObstacle : MonoBehaviour {
 			guo.setWalkability = false;
 			AstarPath.active.UpdateGraphs (guo);
 		}
-	}
+	}*/
 	
 	/* Returns a new Bounds object which contains both \a b1 and \a b2 */
 	/*public Rect ExpandToContain (Bounds b1, Bounds b2) {

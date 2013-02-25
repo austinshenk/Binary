@@ -1,4 +1,4 @@
-//#define SizeProfile    //"Size Profile Debug" If enabled, size profiles will be logged when serializing a graph
+//#define ASTAR_SizeProfile    //"Size Profile Debug" If enabled, size profiles will be logged when serializing a graph
 
 using UnityEngine;
 using System.Collections;
@@ -23,17 +23,17 @@ public class SizeProfiler {
 		profiles.Clear ();
 	}
 	
-	[System.Diagnostics.Conditional ("SizeProfile")]
+	[System.Diagnostics.Conditional ("ASTAR_SizeProfile")]
 	public static void Begin (string s, BinaryWriter stream) {
 		Begin (s, stream.BaseStream, true);
 	}
 	
-	[System.Diagnostics.Conditional ("SizeProfile")]
+	[System.Diagnostics.Conditional ("ASTAR_SizeProfile")]
 	public static void Begin (string s, BinaryWriter stream, bool autoClosing) {
 		Begin (s, stream.BaseStream, autoClosing);
 	}
 	
-	[System.Diagnostics.Conditional ("SizeProfile")]
+	[System.Diagnostics.Conditional ("ASTAR_SizeProfile")]
 	public static void Begin (string s, Stream stream, bool autoClosing) {
 		
 		if (!hasClosed && profiles.ContainsKey(lastOpen)) {
@@ -63,12 +63,12 @@ public class SizeProfiler {
 		profiles[s] = p;
 	}
 	
-	[System.Diagnostics.Conditional ("SizeProfile")]
+	[System.Diagnostics.Conditional ("ASTAR_SizeProfile")]
 	public static void End (string s, BinaryWriter stream) {
 		End (s, stream.BaseStream);
 	}
 	
-	[System.Diagnostics.Conditional ("SizeProfile")]
+	[System.Diagnostics.Conditional ("ASTAR_SizeProfile")]
 	public static void End (string s, Stream stream) {
 		
 		ProfileSizePoint p;
@@ -91,7 +91,7 @@ public class SizeProfiler {
 		profiles[s] = p;
 	}
 	
-	[System.Diagnostics.Conditional ("SizeProfile")]
+	[System.Diagnostics.Conditional ("ASTAR_SizeProfile")]
 	public static void Log () {
 		System.Text.StringBuilder output = new System.Text.StringBuilder();
 		output.Append("============================\n\t\t\t\tSize Profile results:\n============================\n");

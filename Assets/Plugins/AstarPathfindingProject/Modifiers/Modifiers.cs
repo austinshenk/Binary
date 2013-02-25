@@ -1,4 +1,4 @@
-//#define DEBUGGING
+//#define ASTARDEBUGGING
 using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
@@ -46,7 +46,7 @@ namespace Pathfinding {
 		NodePath			= 1 << 1,	/**< Node array */
 		StrictVectorPath	= 1 << 2,	/**< Vector path with original length (same as node path array length). Think of it as: the node positions have changed */
 		VectorPath			= 1 << 3,	/**< Vector path */
-		Original			= 1 << 4,	/**< Used when the modifier requires to be the first in the list (or after a modifier outputting #All) */
+		Original			= 1 << 4,	/**< Used when the modifier requires to be the first in the list (or after a modifier outputting ModifierData.All) */
 		None				= 0,		/**< Zero (no bits true) */
 		Nodes				= NodePath | StrictNodePath, /**< Combine of NodePath and StrictNodePath */
 		Vector				= VectorPath | StrictVectorPath /**< Combine of VectorPath and StrictVectorPath */
@@ -105,7 +105,7 @@ namespace Pathfinding {
 			}
 		}
 		
-		/** \obsolete */
+		/** \deprecated */
 		[System.Obsolete]
 		public virtual void ApplyOriginal (Path p) {
 		}
@@ -113,7 +113,7 @@ namespace Pathfinding {
 		/** Main Post-Processing function */
 		public abstract void Apply (Path p, ModifierData source);
 		
-		/** \obsolete */
+		/** \deprecated */
 		[System.Obsolete]
 		public virtual void PreProcess (Path p) {
 		}
@@ -167,7 +167,7 @@ namespace Pathfinding {
 			}
 		}
 		
-		/** \obsolete */
+		/** \deprecated */
 		[System.Obsolete]
 		public virtual void ApplyOriginal (Path p) {
 			//Debug.Log ("Base call");
@@ -180,28 +180,21 @@ namespace Pathfinding {
 		public virtual void PreProcess (Path p) {
 		}
 		
-		/** \obsolete */
-		[System.Obsolete]
-		public virtual Vector3[] GetNextTarget (Path p, Vector3 currentPosition) {
-			return p.vectorPath;
-			//Debug.Log ("Base call");
-		}
-		
 		//This is for the first pass of original data modifiers
-		/** \obsolete */
+		/** \deprecated */
 		[System.Obsolete]
 		public virtual Vector3[] Apply (Node[] path, Vector3 start, Vector3 end, int startIndex, int endIndex, NavGraph graph) {
 			
 			Vector3[] p = new Vector3[endIndex-startIndex];
 			
 			for (int i=startIndex;i< endIndex;i++) {
-				p[i-startIndex] = path[i].position;
+				p[i-startIndex] = (Vector3)path[i].position;
 			}
 			
 			return p;
 		}
 		
-		/** \obsolete
+		/** \deprecated
 		 * This is for all other position only modifiers (mostly smoothers) */
 		[System.Obsolete]
 		public virtual Vector3[] Apply (Vector3[] path, Vector3 start, Vector3 end) {
@@ -237,9 +230,9 @@ namespace Pathfinding {
 			
 			//If input is a node path, and output wants a vector array, convert the node array to a vector array
 			if (AnyBits (input,ModifierData.Nodes) && AnyBits (output, ModifierData.Vector)) {
-				p.vectorPath = new Vector3[p.path.Length];
-				for (int i=0;i<p.vectorPath.Length;i++) {
-					p.vectorPath[i] = p.path[i].position;
+				p.vectorPath.Clear();
+				for (int i=0;i<p.vectorPath.Count;i++) {
+					p.vectorPath.Add ((Vector3)p.path[i].position);
 				}
 				
 				//Return VectorPath and also StrictVectorPath if input has StrictNodePath set

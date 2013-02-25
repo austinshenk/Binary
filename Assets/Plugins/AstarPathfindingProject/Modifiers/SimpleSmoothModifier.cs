@@ -1,6 +1,8 @@
 using UnityEngine;
-using System.Collections;
+using System.Collections.Generic;
+
 using Pathfinding;
+using Pathfinding.Util;
 
 [AddComponentMenu ("Pathfinding/Modifiers/Simple Smooth")]
 [System.Serializable]
@@ -17,11 +19,12 @@ using Pathfinding;
  * 
  * - <b>Simple</b> Smooths the path by drawing all points close to each other. This results in paths that might cut corners if you are not careful.
  * It will also subdivide the path to create more more points to smooth as otherwise it would still be quite rough.
- * \shadowimage{images/smooth_simple.png}
+ * \shadowimage{smooth_simple.png}
  * - <b>Bezier</b> Smooths the path using Bezier curves. This results a smooth path which will always pass through all points in the path, but make sure it doesn't turn too quickly.
- * \shadowimage{images/smooth_bezier.png}
- * - <b>OffsetSimple</b> An alternative to Simple smooth which will offset the path outwards in each step to minimize the corner-cutting. 
- * - <b>Curved Non Uniform</b> \shadowimage{images/smooth_curved_nonuniform.png}
+ * \shadowimage{smooth_bezier.png}
+ * - <b>OffsetSimple</b> An alternative to Simple smooth which will offset the path outwards in each step to minimize the corner-cutting.
+ * But be careful, if too high values are used, it will turn into loops and look really ugly.
+ * - <b>Curved Non Uniform</b> \shadowimage{smooth_curved_nonuniform.png}
  * 
  * \note Modifies vectorPath array
  * \todo Make the smooth modifier take the world geometry into account when smoothing
@@ -91,23 +94,30 @@ public class SimpleSmoothModifier : MonoModifier {
 			return;
 		}
 		
-		Vector3[] path = p.vectorPath;
+		List<Vector3> path = null;
 		
 		switch (smoothType) {
 			case SmoothType.Simple:
-				p.vectorPath = SmoothSimple (path); break;
+				path = SmoothSimple (p.vectorPath); break;
 			case SmoothType.Bezier:
-				p.vectorPath = SmoothBezier (path); break;
+				path = SmoothBezier (p.vectorPath); break;
 			case SmoothType.OffsetSimple:
-				p.vectorPath = SmoothOffsetSimple (path); break;
+				path = SmoothOffsetSimple (p.vectorPath); break;
 			case SmoothType.CurvedNonuniform:
-				p.vectorPath = CurvedNonuniform (path); break;
+				path = CurvedNonuniform (p.vectorPath); break;
 		}
+		
+		if (path != p.vectorPath) {
+			ListPool<Vector3>.Release (p.vectorPath);
+			p.vectorPath = path;
+		}
+		//.vectorPath.Clear ();
+		//p.vectorPath.AddRange (path);
 	}
 	
 	public float factor = 0.1F;
 	
-	public Vector3[] CurvedNonuniform (Vector3[] path) {
+	public List<Vector3> CurvedNonuniform (List<Vector3> path) {
 		
 		if (maxSegmentLength <= 0) {
 			Debug.LogWarning ("Max Segment Length is <= 0 which would cause DivByZero-exception or other nasty errors (avoid this)");
@@ -115,7 +125,7 @@ public class SimpleSmoothModifier : MonoModifier {
 		}
 		
 		int pointCounter = 0;
-		for (int i=0;i<path.Length-1;i++) {
+		for (int i=0;i<path.Count-1;i++) {
 			//pointCounter += Mathf.FloorToInt ((path[i]-path[i+1]).magnitude / maxSegmentLength)+1;
 			
 			float dist = (path[i]-path[i+1]).magnitude;
@@ -126,21 +136,19 @@ public class SimpleSmoothModifier : MonoModifier {
 			}
 		}
 		
-		Vector3[] subdivided = new Vector3[pointCounter];//totalLength / maxSegmentLength;
-		
-		int counter = 0;
+		List<Vector3> subdivided = ListPool<Vector3>.Claim (pointCounter);
 		
 		//Set first velocity
 		Vector3 preEndVel = (path[1]-path[0]).normalized;
 		
-		for (int i=0;i<path.Length-1;i++) {
+		for (int i=0;i<path.Count-1;i++) {
 			//subdivided[counter] = path[i];
 			//counter++;
 			
 			float dist = (path[i]-path[i+1]).magnitude;
 			
 			Vector3 startVel1 = preEndVel;
-			Vector3 endVel1 = i < path.Length-2 ? ((path[i+2]-path[i+1]).normalized - (path[i]-path[i+1]).normalized).normalized : (path[i+1]-path[i]).normalized;
+			Vector3 endVel1 = i < path.Count-2 ? ((path[i+2]-path[i+1]).normalized - (path[i]-path[i+1]).normalized).normalized : (path[i+1]-path[i]).normalized;
 			
 			Vector3 startVel = startVel1 * dist * factor;
 			Vector3 endVel = endVel1 * dist * factor;
@@ -159,22 +167,15 @@ public class SimpleSmoothModifier : MonoModifier {
 				
 				float t2 = t * onedivdist;
 				
-				subdivided[counter] = GetPointOnCubic(start,end,startVel,endVel,t2);
-				counter++;
+				subdivided.Add (GetPointOnCubic(start,end,startVel,endVel,t2));
+				//counter++;
 			}
 			
 			preEndVel = endVel1;
 			
 		}
 		
-		subdivided[pointCounter-1] = path[path.Length-1];
-		/*for (int i=0;i<subdivided.Length-1;i++) {
-			Debug.DrawLine (subdivided[i],subdivided[i+1],Color.yellow);
-		}*/
-		
-		/*for (float t=0.0F;t<=1.0F;t+=0.01F) {
-			Debug.DrawLine (GetPointOnCubic (Vector3.zero,Vector3.right,Vector3.forward,Vector3.forward,t-0.01F),GetPointOnCubic (Vector3.zero,Vector3.right,Vector3.forward,Vector3.forward,t),Color.cyan);
-		}*/
+		subdivided[subdivided.Count-1] = path[path.Count-1];
 		
 		return subdivided;
 	}
@@ -200,9 +201,9 @@ public class SimpleSmoothModifier : MonoModifier {
 		//return start*t*t*t + start*t*t + startVel*t*t + end*t + endVel*t + end;
 	}
 	
-	public Vector3[] SmoothOffsetSimple (Vector3[] path) {
+	public List<Vector3> SmoothOffsetSimple (List<Vector3> path) {
 		
-		if (path.Length <= 2 || iterations <= 0) {
+		if (path.Count <= 2 || iterations <= 0) {
 			return path;
 		}
 		
@@ -211,19 +212,24 @@ public class SimpleSmoothModifier : MonoModifier {
 			return path;
 		}
 		
-		Vector3[] subdivided = new Vector3[(path.Length-2)*(int)Mathf.Pow(2,iterations)+2];
-		Vector3[] subdivided2 = new Vector3[(path.Length-2)*(int)Mathf.Pow(2,iterations)+2];
+		int maxLength = (path.Count-2)*(int)Mathf.Pow(2,iterations)+2;
 		
-		for (int i=0;i<path.Length;i++) {
+		List<Vector3> subdivided = ListPool<Vector3>.Claim (maxLength);
+		//new Vector3[(path.Length-2)*(int)Mathf.Pow(2,iterations)+2];
+		List<Vector3> subdivided2 = ListPool<Vector3>.Claim (maxLength);
+		//new Vector3[(path.Length-2)*(int)Mathf.Pow(2,iterations)+2];
+		
+		for (int i=0;i<maxLength;i++) { subdivided.Add (Vector3.zero); subdivided2.Add (Vector3.zero); }
+		
+		for (int i=0;i<path.Count;i++) {
 			subdivided[i] = path[i];
 		}
 		
-		
 		for (int iteration=0;iteration < iterations; iteration++) {
-			int currentPathLength = (path.Length-2)*(int)Mathf.Pow(2,iteration)+2;
+			int currentPathLength = (path.Count-2)*(int)Mathf.Pow(2,iteration)+2;
 			
 			//Switch the arrays
-			Vector3[] tmp = subdivided;
+			List<Vector3> tmp = subdivided;
 			subdivided = subdivided2;
 			subdivided2 = tmp;
 			
@@ -277,16 +283,18 @@ public class SimpleSmoothModifier : MonoModifier {
 				}
 			}
 			
-			subdivided[(path.Length-2)*(int)Mathf.Pow(2,iteration+1)+2-1] = subdivided2[currentPathLength-1];
+			subdivided[(path.Count-2)*(int)Mathf.Pow(2,iteration+1)+2-1] = subdivided2[currentPathLength-1];
 		}
 		
+		
+		ListPool<Vector3>.Release (subdivided2);
 		
 		return subdivided;
 	}
 	
-	public Vector3[] SmoothSimple (Vector3[] path) {
+	public List<Vector3> SmoothSimple (List<Vector3> path) {
 		
-		if (path.Length <= 2) {
+		if (path.Count <= 2) {
 			return path;
 		}
 		
@@ -294,40 +302,45 @@ public class SimpleSmoothModifier : MonoModifier {
 			int numSegments = 0;
 			maxSegmentLength = maxSegmentLength < 0.005F ? 0.005F : maxSegmentLength;
 			
-			for (int i=0;i<path.Length-1;i++) {
+			for (int i=0;i<path.Count-1;i++) {
 				float length = Vector3.Distance (path[i],path[i+1]);
 				
 				numSegments += Mathf.FloorToInt (length / maxSegmentLength);
 			}
 			
-			Vector3[] subdivided = new Vector3[numSegments+1];
+			List<Vector3> subdivided = ListPool<Vector3>.Claim (numSegments+1);
 			
 			int c = 0;
 			
-			for (int i=0;i<path.Length-1;i++) {
+			float carry = 0;
+			
+			for (int i=0;i<path.Count-1;i++) {
 				
 				float length = Vector3.Distance (path[i],path[i+1]);
 				
-				int numSegmentsForSegment = Mathf.FloorToInt (length / maxSegmentLength);
+				int numSegmentsForSegment = Mathf.FloorToInt ((length + carry) / maxSegmentLength);
 				
+				float carryOffset = carry/length;
 				//float t = 1F / numSegmentsForSegment;
 				
 				Vector3 dir = path[i+1] - path[i];
 				
 				for (int q=0;q<numSegmentsForSegment;q++) {
 					//Debug.Log (q+" "+c+" "+numSegments+" "+length+" "+numSegmentsForSegment);
-					subdivided[c] = dir*((float)q/numSegmentsForSegment) + path[i];
+					subdivided.Add (dir*((float)q/numSegmentsForSegment - carryOffset) + path[i]);
 					c++;
 				}
+				
+				carry = (length + carry) % maxSegmentLength;
 			}
 			
-			subdivided[c] = path[path.Length-1];
+			subdivided.Add (path[path.Count-1]);
 			
 			
 			for (int it = 0; it < iterations; it++) {
 				Vector3 prev = subdivided[0];
 				
-				for (int i=1;i<subdivided.Length-1;i++) {
+				for (int i=1;i<subdivided.Count-1;i++) {
 					
 					Vector3 tmp = subdivided[i];
 					
@@ -339,12 +352,20 @@ public class SimpleSmoothModifier : MonoModifier {
 			
 			return subdivided;
 		} else {
-			Vector3[] subdivided = Polygon.Subdivide (path,subdivisions);
+			List<Vector3> subdivided = ListPool<Vector3>.Claim ();
+			//Polygon.Subdivide (path,subdivisions);
+			if (subdivisions < 0) subdivisions = 0;
+			
+			int steps = 1 << subdivisions;
+			
+			for (int i=0;i<path.Count-1;i++)
+				for (int j=0;j<steps;j++)
+					subdivided.Add (Vector3.Lerp (path[i],path[i+1],(float)j / steps));
 			
 			for (int it = 0; it < iterations; it++) {
 				Vector3 prev = subdivided[0];
 				
-				for (int i=1;i<subdivided.Length-1;i++) {
+				for (int i=1;i<subdivided.Count-1;i++) {
 					
 					Vector3 tmp = subdivided[i];
 					
@@ -357,12 +378,14 @@ public class SimpleSmoothModifier : MonoModifier {
 		}
 	}
 	
-	public Vector3[] SmoothBezier (Vector3[] path) {
-		float subMult = Mathf.Pow (2,subdivisions);
-		Vector3[] subdivided = new Vector3[(path.Length-1)*(int)subMult+1];
+	public List<Vector3> SmoothBezier (List<Vector3> path) {
+		if (subdivisions < 0) subdivisions = 0;
 		
+		int subMult = 1 << subdivisions;
+		List<Vector3> subdivided = ListPool<Vector3>.Claim ();
+		//new Vector3[(path.Length-1)*(int)subMult+1];
 		
-		for (int i=0;i<path.Length-1;i++) {
+		for (int i=0;i<path.Count-1;i++) {
 			
 			Vector3 tangent1 = Vector3.zero;
 			Vector3 tangent2 = Vector3.zero;
@@ -372,7 +395,7 @@ public class SimpleSmoothModifier : MonoModifier {
 				tangent1 = path[i+1]-path[i-1];
 			}
 			
-			if (i == path.Length-2) {
+			if (i == path.Count-2) {
 				tangent2 = path[i]-path[i+1];
 			} else {
 				tangent2 = path[i]-path[i+2];
@@ -387,13 +410,13 @@ public class SimpleSmoothModifier : MonoModifier {
 			Vector3 v3 = v4+tangent2;
 			
 			
-			for (int j=0;j<(int)subMult;j++) {
-				subdivided[i*(int)subMult+j] = Mathfx.CubicBezier (v1,v2,v3,v4, j/subMult);
+			for (int j=0;j<subMult;j++) {
+				subdivided.Add (Mathfx.CubicBezier (v1,v2,v3,v4, (float)j/subMult));
 			}
 		}
 		
 		//Assign the last point
-		subdivided[subdivided.Length-1] = path[path.Length-1];
+		subdivided.Add (path[path.Count-1]);
 		
 		return subdivided;
 	}

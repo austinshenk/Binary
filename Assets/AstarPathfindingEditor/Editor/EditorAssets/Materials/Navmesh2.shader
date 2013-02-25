@@ -6,12 +6,9 @@ Properties {
     _FadeColor ("Fade Color", Color) = (1,1,1,0.3)
 }
 SubShader {
-
-	Cull Off
 	
 	Pass {
    		ColorMask 0
-   		
    	}
 	
 	Tags {"Queue"="Transparent+1" "IgnoreProjector"="True" "RenderType"="Transparent"}

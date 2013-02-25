@@ -6,7 +6,8 @@ public class DoorController : MonoBehaviour {
 	
 	private bool open = false;
 	
-	public int bitToChange = 0;
+	public int opentag = 1;
+	public int closedtag = 1;
 	
 	Bounds bounds;
 	
@@ -27,9 +28,10 @@ public class DoorController : MonoBehaviour {
 		this.open = open;
 		
 		GraphUpdateObject guo = new GraphUpdateObject(bounds);
-		guo.tagsChange = 1 << bitToChange;
-		
-		guo.tagsValue = open ? 1 << bitToChange : 0;
+		int tag = open ? opentag : closedtag;
+		if (tag > 31) { Debug.LogError ("tag > 31"); return; }
+		guo.modifyTag = true;
+		guo.setTag = tag;
 		
 		AstarPath.active.UpdateGraphs (guo);
 		

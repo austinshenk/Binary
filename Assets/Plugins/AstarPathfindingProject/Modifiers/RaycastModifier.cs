@@ -50,14 +50,14 @@ public class RaycastModifier : MonoModifier {
 	private static List<Vector3> nodes;
 	
 	public override void Apply (Path p, ModifierData source) {
-		//System.DateTime startTime = System.DateTime.Now;
+		//System.DateTime startTime = System.DateTime.UtcNow;
 		
 		if (iterations <= 0) {
 			return;
 		}
 		
 		if (nodes == null) {
-			nodes = new List<Vector3> (p.vectorPath.Length);
+			nodes = new List<Vector3> (p.vectorPath.Count);
 		} else {
 			nodes.Clear ();
 		}
@@ -139,9 +139,10 @@ public class RaycastModifier : MonoModifier {
 		
 		//ValidateLine (null,null,nodes[0],nodes[nodes.Count-1]);
 		
-		p.vectorPath = nodes.ToArray ();
+		p.vectorPath.Clear ();
+		p.vectorPath.AddRange (nodes);
 		
-		//System.DateTime endTime2 = System.DateTime.Now;
+		//System.DateTime endTime2 = System.DateTime.UtcNow;
 		//float theTime2 = (endTime2-startTime).Ticks*0.0001F;
 		
 		//Debug.Log ("Raycast Modifier : Time "+theTime2.ToString ("0.00"));
@@ -188,8 +189,8 @@ public class RaycastModifier : MonoModifier {
 		}
 		
 		if (useGraphRaycasting && n1 == null) {
-			n1 = AstarPath.active.GetNearest (v1);
-			n2 = AstarPath.active.GetNearest (v2);
+			n1 = AstarPath.active.GetNearest (v1).node;
+			n2 = AstarPath.active.GetNearest (v2).node;
 		}
 		
 		if (useGraphRaycasting && n1 != null && n2 != null) {

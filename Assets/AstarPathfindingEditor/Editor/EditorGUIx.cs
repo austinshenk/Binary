@@ -445,6 +445,227 @@ public class EditorGUILayoutx {
 		
 	}*/
 	
+	
+	public static void MenuCallback (System.Object ob) {
+		Debug.Log ("Got Callback");
+	}
+	
+	/** Begin horizontal indent for the next control.
+	 * Fake "real" indent when using EditorGUIUtility.LookLikeControls.\n
+	 * Forumula used is 13+6*EditorGUI.indentLevel
+	 */
+	public static void BeginIndent () {
+		GUILayout.BeginHorizontal ();
+		GUILayout.Space (IndentWidth());
+	}
+	
+	/** Returns width of current editor indent.
+	 * Unity seems to use 13+6*EditorGUI.indentLevel in U3
+	 * and 15*indent - (indent > 1 ? 2 : 0) or something like that in U4
+	 */
+	public static int IndentWidth () {
+#if UNITY_4_0
+		//Works well for indent levels 0,1,2 at least
+		return 15*EditorGUI.indentLevel - (EditorGUI.indentLevel > 1 ? 2 : 0);
+#else
+		return 13+6*EditorGUI.indentLevel;
+#endif
+	}
+	
+	/** End indent.
+	 * Actually just a EndHorizontal call.
+	 * \see BeginIndent
+	 */
+	public static void EndIndent () {
+		GUILayout.EndHorizontal ();
+	}
+	
+	public static int SingleTagField (string label, int value) {
+		
+		//GUILayout.BeginHorizontal ();
+		
+		//Debug.Log (value.ToString ());
+		//EditorGUIUtility.LookLikeControls();
+		///EditorGUILayout.PrefixLabel (label,EditorStyles.layerMaskField);
+		//GUILayout.FlexibleSpace ();
+		//Rect r = GUILayoutUtility.GetLastRect ();
+		
+		
+		
+		string[] tagNames = AstarPath.FindTagNames ();
+		value = value < 0 ? 0 : value;
+		value = value >= tagNames.Length ? tagNames.Length-1 : value;
+		
+		//string text = tagNames[value];
+		
+		/*if (GUILayout.Button (text,EditorStyles.layerMaskField,GUILayout.ExpandWidth (true))) {
+			
+			//Debug.Log ("pre");
+			GenericMenu menu = new GenericMenu ();
+			
+			for (int i=0;i<tagNames.Length;i++) {
+				bool on = value == i;
+				int result = i;
+				menu.AddItem (new GUIContent (tagNames[i]),on,delegate (System.Object ob) { value = (int)ob; }, result);
+				//value.SetValues (result);
+			}
+			
+			menu.AddItem (new GUIContent ("Edit Tags..."),false,AstarPathEditor.EditTags);
+			menu.ShowAsContext ();
+			
+			Event.current.Use ();
+			//Debug.Log ("Post");
+		}*/
+		value = EditorGUILayout.IntPopup (label,value,tagNames,new int[] {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31});
+		
+		//EditorGUIUtility.LookLikeInspector();
+		//GUILayout.EndHorizontal ();
+		
+		return value;
+	}
+	
+	public static void SetTagField (GUIContent label, ref Pathfinding.TagMask value) {
+		
+		GUILayout.BeginHorizontal ();
+		
+		//Debug.Log (value.ToString ());
+		EditorGUIUtility.LookLikeControls();
+		EditorGUILayout.PrefixLabel (label,EditorStyles.layerMaskField);
+		//GUILayout.FlexibleSpace ();
+		//Rect r = GUILayoutUtility.GetLastRect ();
+		
+		string text = "";
+		if (value.tagsChange == 0) text = "Nothing";
+		else if (value.tagsChange == ~0) text = "Everything";
+		else {
+			text = System.Convert.ToString (value.tagsChange,2);
+		}
+		
+		string[] tagNames = AstarPath.FindTagNames ();
+		
+		if (GUILayout.Button (text,EditorStyles.layerMaskField,GUILayout.ExpandWidth (true))) {
+			
+			//Debug.Log ("pre");
+			GenericMenu menu = new GenericMenu ();
+			
+			menu.AddItem (new GUIContent ("Everything"),value.tagsChange == ~0, value.SetValues, new Pathfinding.TagMask (~0,value.tagsSet));
+			menu.AddItem (new GUIContent ("Nothing"),value.tagsChange == 0, value.SetValues, new Pathfinding.TagMask (0,value.tagsSet));
+			
+			for (int i=0;i<tagNames.Length;i++) {
+				bool on = (value.tagsChange >> i & 0x1) != 0;
+				Pathfinding.TagMask result = new Pathfinding.TagMask (on ? value.tagsChange & ~(1 << i) : value.tagsChange | 1<<i,value.tagsSet);
+				menu.AddItem (new GUIContent (tagNames[i]),on,value.SetValues, result);
+				//value.SetValues (result);
+			}
+			
+			menu.AddItem (new GUIContent ("Edit Tags..."),false,AstarPathEditor.EditTags);
+			menu.ShowAsContext ();
+			
+			Event.current.Use ();
+			//Debug.Log ("Post");
+		}
+		
+		EditorGUIUtility.LookLikeInspector();
+		GUILayout.EndHorizontal ();
+		
+	}
+	
+	public static void TagsMaskField (GUIContent changeLabel, GUIContent setLabel,ref Pathfinding.TagMask value) {
+		
+		GUILayout.BeginHorizontal ();
+		
+		//Debug.Log (value.ToString ());
+		EditorGUIUtility.LookLikeControls();
+		EditorGUILayout.PrefixLabel (changeLabel,EditorStyles.layerMaskField);
+		//GUILayout.FlexibleSpace ();
+		//Rect r = GUILayoutUtility.GetLastRect ();
+		
+		string text = "";
+		if (value.tagsChange == 0) text = "Nothing";
+		else if (value.tagsChange == ~0) text = "Everything";
+		else {
+			text = System.Convert.ToString (value.tagsChange,2);
+		}
+		
+		if (GUILayout.Button (text,EditorStyles.layerMaskField,GUILayout.ExpandWidth (true))) {
+			
+			
+			//Debug.Log ("pre");
+			GenericMenu menu = new GenericMenu ();
+			
+			menu.AddItem (new GUIContent ("Everything"),value.tagsChange == ~0, value.SetValues, new Pathfinding.TagMask (~0,value.tagsSet));
+			menu.AddItem (new GUIContent ("Nothing"),value.tagsChange == 0, value.SetValues, new Pathfinding.TagMask (0,value.tagsSet));
+			
+			for (int i=0;i<32;i++) {
+				bool on = (value.tagsChange >> i & 0x1) != 0;
+				Pathfinding.TagMask result = new Pathfinding.TagMask (on ? value.tagsChange & ~(1 << i) : value.tagsChange | 1<<i,value.tagsSet);
+				menu.AddItem (new GUIContent (""+i),on,value.SetValues, result);
+				//value.SetValues (result);
+			}
+			
+			menu.ShowAsContext ();
+			
+			Event.current.Use ();
+			//Debug.Log ("Post");
+		}
+		
+		EditorGUIUtility.LookLikeInspector();
+		GUILayout.EndHorizontal ();
+		
+		
+		
+		GUILayout.BeginHorizontal ();
+		
+		//Debug.Log (value.ToString ());
+		EditorGUIUtility.LookLikeControls();
+		EditorGUILayout.PrefixLabel (setLabel,EditorStyles.layerMaskField);
+		//GUILayout.FlexibleSpace ();
+		//r = GUILayoutUtility.GetLastRect ();
+		
+		text = "";
+		if (value.tagsSet == 0) text = "Nothing";
+		else if (value.tagsSet == ~0) text = "Everything";
+		else {
+			text = System.Convert.ToString (value.tagsSet,2);
+		}
+		
+		if (GUILayout.Button (text,EditorStyles.layerMaskField,GUILayout.ExpandWidth (true))) {
+			
+			
+			//Debug.Log ("pre");
+			GenericMenu menu = new GenericMenu ();
+			
+			if (value.tagsChange != 0)	menu.AddItem (new GUIContent ("Everything"),value.tagsSet == ~0, value.SetValues, new Pathfinding.TagMask (value.tagsChange,~0));
+			else				menu.AddDisabledItem (new GUIContent ("Everything"));
+			
+			menu.AddItem (new GUIContent ("Nothing"),value.tagsSet == 0, value.SetValues, new Pathfinding.TagMask (value.tagsChange,0));
+			
+			for (int i=0;i<32;i++) {
+				bool enabled = (value.tagsChange >> i & 0x1) != 0;
+				bool on = (value.tagsSet >> i & 0x1) != 0;
+				
+				Pathfinding.TagMask result = new Pathfinding.TagMask (value.tagsChange, on ? value.tagsSet & ~(1 << i) : value.tagsSet | 1<<i);
+				
+				if (enabled)	menu.AddItem (new GUIContent (""+i),on,value.SetValues, result);
+				else	menu.AddDisabledItem (new GUIContent (""+i));
+				
+				//value.SetValues (result);
+			}
+			
+			menu.ShowAsContext ();
+			
+			Event.current.Use ();
+			//Debug.Log ("Post");
+		}
+		
+		EditorGUIUtility.LookLikeInspector();
+		GUILayout.EndHorizontal ();
+		
+		
+		//return value;
+	}
+	
+	
 	public static int UpDownArrows (GUIContent label, int value, GUIStyle labelStyle, GUIStyle upArrow, GUIStyle downArrow) {
 		
 		GUILayout.BeginHorizontal ();
@@ -470,17 +691,84 @@ public class EditorGUILayoutx {
 		return value;
 	}
 	
+	public static bool UnityTagMaskList (GUIContent label, bool foldout, List<string> tagMask) {
+		if (tagMask == null) throw new System.ArgumentNullException ("tagMask");
+		if (EditorGUILayout.Foldout (foldout, label)) {
+			EditorGUI.indentLevel++;
+			GUILayout.BeginVertical();
+			for (int i=0;i<tagMask.Count;i++) {
+				tagMask[i] = EditorGUILayout.TagField (tagMask[i]);
+			}
+			GUILayout.BeginHorizontal();
+			if (GUILayout.Button ("Add Tag")) tagMask.Add ("Untagged");
+			
+			EditorGUI.BeginDisabledGroup (tagMask.Count == 0);
+			if (GUILayout.Button ("Remove Last")) tagMask.RemoveAt (tagMask.Count-1);
+			EditorGUI.EndDisabledGroup();
+			
+			GUILayout.EndHorizontal();
+			GUILayout.EndVertical();
+			EditorGUI.indentLevel--;
+			return true;
+		}
+		return false;
+	}
+	
 	public static LayerMask LayerMaskField (string label, LayerMask selected) {
 		return LayerMaskField (label,selected,true);
 	}
 	
 	public static List<string> layers;
 	public static List<int> layerNumbers;
+	public static string[] layerNames;
+	public static long lastUpdateTick;
 	
 	/** Displays a LayerMask field.
+	 * \param label Label to display
 	 * \param showSpecial Use the Nothing and Everything selections
+	 * \param selected Current LayerMask
+	 * \note Unity 3.5 and up will use the EditorGUILayout.MaskField instead of a custom written one.
 	 */
 	public static LayerMask LayerMaskField (string label, LayerMask selected, bool showSpecial) {
+		
+#if !UNITY_3_4
+		//Unity 3.5 and up
+		
+		if (layers == null || (System.DateTime.UtcNow.Ticks - lastUpdateTick > 10000000L && Event.current.type == EventType.Layout)) {
+			lastUpdateTick = System.DateTime.UtcNow.Ticks;
+			if (layers == null) {
+				layers = new List<string>();
+				layerNumbers = new List<int>();
+				layerNames = new string[4];
+			} else {
+				layers.Clear ();
+				layerNumbers.Clear ();
+			}
+			
+			int emptyLayers = 0;
+			for (int i=0;i<32;i++) {
+				string layerName = LayerMask.LayerToName (i);
+				
+				if (layerName != "") {
+					
+					for (;emptyLayers>0;emptyLayers--) layers.Add ("Layer "+(i-emptyLayers));
+					layerNumbers.Add (i);
+					layers.Add (layerName);
+				} else {
+					emptyLayers++;
+				}
+			}
+			
+			if (layerNames.Length != layers.Count) {
+				layerNames = new string[layers.Count];
+			}
+			for (int i=0;i<layerNames.Length;i++) layerNames[i] = layers[i];
+		}
+		
+		selected.value =  EditorGUILayout.MaskField (label,selected.value,layerNames);
+		
+		return selected;
+#else
 		
 		if (layers == null) {
 			layers = new List<string>();
@@ -575,13 +863,14 @@ public class EditorGUILayoutx {
 			if (selected == preSelected) {
 				GUI.changed = false;
 			} else {
-				Debug.Log ("Difference made");
+				//Debug.Log ("Difference made");
 			}
 		}
 		
 		GUI.changed = preChange || GUI.changed;
 		
 		return selected;
+#endif
 	}
 	
 	public static float Hermite(float start, float end, float value)

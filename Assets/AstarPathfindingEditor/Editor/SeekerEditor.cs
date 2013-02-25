@@ -1,3 +1,4 @@
+//#define NoTagPenalty		//Enables or disables tag penalties. Can give small performance boost
 using UnityEngine;
 using UnityEditor;
 using System.Collections;
@@ -10,11 +11,31 @@ using Pathfinding;
 public class SeekerEditor : Editor {
 	
 	public static bool modifiersOpen = false;
+	public static bool tagPenaltiesOpen = false;
 	
 	List<IPathModifier> mods = null;
 	public override void OnInspectorGUI () {
 		DrawDefaultInspector ();
 		
+		Seeker script = target as Seeker;
+		
+		EditorGUILayoutx.SetTagField (new GUIContent ("Valid Tags","Sets which tags are traversable. Tags can be used to restrict which units can traverse which ground"),ref script.traversableTags);
+		
+		EditorGUI.indentLevel=0;
+		tagPenaltiesOpen = EditorGUILayout.Foldout (tagPenaltiesOpen,new GUIContent ("Tag Penalties","Penalties for each tag"));
+		if (tagPenaltiesOpen) {
+			EditorGUI.indentLevel=2;
+			string[] tagNames = AstarPath.FindTagNames ();
+			for (int i=0;i<script.tagPenalties.Length;i++) {
+				int tmp = EditorGUILayout.IntField ((i < tagNames.Length ? tagNames[i] : "Tag "+i),(int)script.tagPenalties[i]);
+				if (tmp < 0) tmp = 0;
+				script.tagPenalties[i] = tmp;
+			}
+			if (GUILayout.Button ("Edit Tags...")) {
+				AstarPathEditor.EditTags ();
+			}
+		}
+		EditorGUI.indentLevel=1;
 		
 		//Do some loading and checking
 		if (!AstarPathEditor.stylesLoaded) {
@@ -29,8 +50,6 @@ public class SeekerEditor : Editor {
 			}
 		}
 		GUIStyle helpBox = GUI.skin.GetStyle ("helpBox");
-		
-		Seeker script = target as Seeker;
 		
 		if (mods == null) {
 			mods = new List<IPathModifier>(script.GetComponents<MonoModifier>() as IPathModifier[]);
@@ -84,6 +103,7 @@ public class SeekerEditor : Editor {
 		}
 		
 		EditorGUI.indentLevel = 0;
+		
 		
 		modifiersOpen = EditorGUILayout.Foldout (modifiersOpen, "Modifiers Priorities"+(modifierErrors ? " - Errors in modifiers!" : ""),EditorStyles.foldout);
 		

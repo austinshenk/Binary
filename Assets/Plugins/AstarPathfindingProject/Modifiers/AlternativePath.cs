@@ -51,7 +51,7 @@ public class AlternativePath : MonoModifier {
 	public override void Apply (Path p, ModifierData source) {
 		
 		lock (lockObject) {
-			toBeApplied = p.path;
+			toBeApplied = p.path.ToArray();
 			//AstarPath.active.RegisterCanUpdateGraphs (ApplyNow);
 			if (!waitingForApply) {
 				waitingForApply = true;
@@ -72,7 +72,7 @@ public class AlternativePath : MonoModifier {
 			if (prevNodes != null) {
 				int rndStart = rnd.Next (randomStep);
 				for (int i=rndStart;i<prevNodes.Length;i+= rnd.Next (1,randomStep)) {
-					prevNodes[i].penalty -= prevPenalty;
+					prevNodes[i].penalty = (uint)(prevNodes[i].penalty-prevPenalty);
 				}
 			}
 			
@@ -86,7 +86,7 @@ public class AlternativePath : MonoModifier {
 				//int rnd = //Random.Range (0,randomStep);
 				int rndStart = rnd.Next (randomStep);
 				for (int i=rndStart;i<toBeApplied.Length;i+= rnd.Next (1,randomStep)) {
-					toBeApplied[i].penalty += penalty;
+					toBeApplied[i].penalty = (uint)(toBeApplied[i].penalty+penalty);
 				}
 			}
 			

@@ -1,3 +1,4 @@
+//#define ASTARDEBUG
 using UnityEngine;
 using System.Collections;
 #if UNITY_EDITOR
@@ -7,6 +8,7 @@ using UnityEditor;
 [ExecuteInEditMode]
 public class NavMeshRenderer : MonoBehaviour {
 	
+	/** Last level loaded. Used to check for scene switches */
 	string lastLevel = "";
 	
 	/** Used to get rid of the compiler warning that #lastLevel is not used */
@@ -22,7 +24,6 @@ public class NavMeshRenderer : MonoBehaviour {
 		}
 		
 		if (lastLevel != EditorApplication.currentScene) {
-			Debug.Log ("Level change "+lastLevel+" --> "+EditorApplication.currentScene);
 			DestroyImmediate (gameObject);
 		}
 		#endif
