@@ -32,6 +32,7 @@ public class RTSPlayer extends MonoBehaviour{
 	
 	public var resourceNames:String[];
 	public var resourceAmounts:int[];
+	public var resources:Hashtable;
 	
 	public var playerGUISkin:GUISkin;
 	public static final var mainGUIHeight:int = 150;
