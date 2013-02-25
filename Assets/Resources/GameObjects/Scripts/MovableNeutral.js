@@ -10,23 +10,20 @@ public class MovableNeutral extends RTSObject implements Movable{
 	public var speedAngular:int;
 	private var startRotation:boolean = false;
 	
-	private var seeker:Seeker;
 	private var flocking:boolean = false;
 	private var commandPoint:Vector3;       
 	private var centerOffset:Vector3;
-	private var path:Pathfinding.Path;
-	private var nextWaypointDistance:float = 3;
+	private var path:Pathfinding.ABPath = null;
 	private var currentWaypoint:int = 0;
-	private var waypoint:Vector3;
-	public var reachedDestination:boolean = true;
+	private var wayPoint:Vector3;
+	private var reachedDestination:boolean = true;
 	
-	private var tempMoveDir:Vector3;
-	private var hit:RaycastHit;       
+	private var tempMoveDir:Vector3;     
 	
 	function Start(){
 		super.Start();
 		movingSpeedLinear = speedLinear;
-		seeker = gameObject.AddComponent(Seeker);
+		gameObject.AddComponent(Seeker);
 	}
 	
 	function OnCollisionStay(col:Collision){
@@ -36,10 +33,6 @@ public class MovableNeutral extends RTSObject implements Movable{
 		var dir:Vector3;
 		var colPriority:float = col.transform.GetComponent(RTSObject).priority;
 		if(team == col.transform.GetComponent(RTSObject).team){
-			if(priority < colPriority){
-				dir = Vector3.Normalize(col.transform.position-transform.position);
-				simpleMove(dir);
-			}
 			if(priority == colPriority){
 				if(priority == 0){
 					dir = Vector3.Normalize(col.transform.position-transform.position);
@@ -127,19 +120,20 @@ public class MovableNeutral extends RTSObject implements Movable{
 		if(!flocking){
 			point += centerOffset;
 		}
-		if(!Physics.Linecast(transform.position, point, 1<<LayerConstants.OBSTACLES)){
-			path = new Pathfinding.Path();
-			path.vectorPath = [point];
+		/*if(!Physics.Linecast(transform.position, point, 1<<LayerConstants.OBSTACLES)){
+			path = new Pathfinding.ABPath.Construct(transform.position,point,null);
+			path.Initialize();
+			path.vectorPath.Add(point);
 			currentWaypoint = 0;
 		}
-		else{
-			seeker.StartPath(transform.position, point, pathCalculationComplete);
-		}
+		else{*/
+			GetComponent(Seeker).StartPath(transform.position, point, pathCalculationComplete);
+		//}
 	}
 	
-	function pathCalculationComplete(p:Pathfinding.Path) {
+	function pathCalculationComplete(p:Pathfinding.ABPath) {
 		if(p.error){return;}
-		var end = p.vectorPath[p.vectorPath.Length-1];
+		var end = p.vectorPath[p.vectorPath.Count-1];
     	end.y += .25;
     	var checkPoint:Vector3 = commandPoint;
     	checkPoint.y += .25;
@@ -150,7 +144,7 @@ public class MovableNeutral extends RTSObject implements Movable{
     		end.y = checkPoint.y;
     	}
 		if(Physics.Linecast(checkPoint, end, 1<<LayerConstants.OBSTACLES)){
-    		seeker.StartPath(transform.position, commandPoint, pathCalculationComplete);
+    		GetComponent(Seeker).StartPath(transform.position, commandPoint, pathCalculationComplete);
     	}
     	else{
 	        path = p;
@@ -160,6 +154,7 @@ public class MovableNeutral extends RTSObject implements Movable{
 	}
 	
 	function Stop(){
+		path = null;
 		priority = 0;
 		reachedDestination = true;
 	}
@@ -177,6 +172,7 @@ public class MovableNeutral extends RTSObject implements Movable{
 	
 	function FixedUpdate() {
 		if(!collider.enabled) return;
+		var hit:RaycastHit;
 		if(Physics.Raycast(transform.position+Vector3(0,5,0), Vector3(0,-1,0), hit, Mathf.Infinity, 1<<LayerConstants.GROUND)){
 			//Set Unit Y positon to hit point + half the colliders Z bounds + buffer
 			rigidbody.position.y = hit.point.y + height + .25;
@@ -189,7 +185,7 @@ public class MovableNeutral extends RTSObject implements Movable{
 			    //reverse direction and clear Path
 				tempMoveDir *= -1;
 				if(path != null){
-					currentWaypoint = path.vectorPath.Length;
+					currentWaypoint = path.vectorPath.Count;
 				}
 				else{
 					Stop();
@@ -208,11 +204,12 @@ public class MovableNeutral extends RTSObject implements Movable{
 	}
 	
 	function Update(){
+		super.Update();
 		if(path == null){return;}
 	    //End of path
-	    if(currentWaypoint >= path.vectorPath.Length) {Stop();return;}
+	    if(currentWaypoint >= path.vectorPath.Count || path.vectorPath.Count <= 1) {Stop();return;}
 	    //Priority set to 1 for Moving
-	    GetComponent(RTSObject).priority = 1;
+	    priority = 1;
 	    //Rotate Unit to initial point and afterwards use Look at
 	    if(startRotation){
 	    	if(Rotate(path.vectorPath[1])){
@@ -222,10 +219,10 @@ public class MovableNeutral extends RTSObject implements Movable{
 	    		return;
 	    	}
 	    }
-	    waypoint = path.vectorPath[currentWaypoint];
-	    transform.LookAt(Vector3(waypoint.x, transform.position.y, waypoint.z));
-	    simpleMove(Vector3.Normalize(waypoint-transform.position));
-	    if(Vector2.Distance(Vector2(transform.position.x,transform.position.z),Vector2(waypoint.x,waypoint.z)) < nextWaypointDistance) {
+	    wayPoint = path.vectorPath[currentWaypoint];
+	    transform.LookAt(Vector3(wayPoint.x, transform.position.y, wayPoint.z));
+	    simpleMove(Vector3.Normalize(wayPoint-transform.position));
+	    if(Vector2.Distance(Vector2(transform.position.x,transform.position.z),Vector2(wayPoint.x,wayPoint.z)) < 3) {
 	        currentWaypoint++;
 	        return;
 	   	}
